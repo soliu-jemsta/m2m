@@ -1,0 +1,40 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/spfx-build/package-solution.schema.json",
+  "solution": {
+    "name": "m-2-m-client-side-solution",
+    "id": "ab6edacd-a4af-49e4-92e6-bf0e5c59dd3c",
+    "version": "1.0.0.0",
+    "includeClientSideAssets": true,
+    "skipFeatureDeployment": true,
+    "isDomainIsolated": false,
+    "developer": {
+      "name": "",
+      "websiteUrl": "",
+      "privacyUrl": "",
+      "termsOfUseUrl": "",
+      "mpnId": "Undefined-1.20.0"
+    },
+    "metadata": {
+      "shortDescription": {
+        "default": "m-2-m description"
+      },
+      "longDescription": {
+        "default": "m-2-m description"
+      },
+      "screenshotPaths": [],
+      "videoUrl": "",
+      "categories": []
+    },
+    "features": [
+      {
+        "title": "m-2-m Feature",
+        "description": "The feature that activates elements of the m-2-m solution.",
+        "id": "3b93e967-42ac-4778-a5e7-5fc30a570675",
+        "version": "1.0.0.0"
+      }
+    ]
+  },
+  "paths": {
+    "zippedPackage": "solution/m-2-m.sppkg"
+  }
+}

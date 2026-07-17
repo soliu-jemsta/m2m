@@ -1,0 +1,225 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/spfx-build/config.2.0.schema.json",
+  "version": "2.0",
+  "bundles": {
+    "mortgage-2-m-web-part": {
+      "components": [
+        {
+          "entrypoint": "./lib/webparts/mortgage2M/Mortgage2MWebPart.js",
+          "manifest": "./src/webparts/mortgage2M/Mortgage2MWebPart.manifest.json"
+        }
+      ]
+    }
+  },
+  "externals": {
+    "notyf": {
+      "path": "src/codebase/general/libraries/notyf.min.js",
+      "globalName": "notyf"
+    },
+    "jQuery": {
+      "path": "src/codebase/general/libraries/jquery-1.11.3.min.js",
+      "globalName": "$"
+    },
+    "jQueryUI": {
+      "path": "src/codebase/general/libraries/jquery-ui.min.js",
+      "globalName": "jQueryUI",
+      "globalDependencies": [
+        "jQuery"
+      ]
+    },
+    "summernote": {
+      "path": "src/codebase/general/libraries/summernote.js",
+      "globalName": "summernote",
+      "globalDependencies": [
+        "jQuery"
+      ]
+    },
+    "select2": {
+      "path": "src/codebase/general/libraries/select2.min.js",
+      "globalName": "select2",
+      "globalDependencies": [
+        "jQuery"
+      ]
+    },
+    "dynamicrenderer": {
+      "path": "src/codebase/general/libraries/dynamicrenderer.js",
+      "globalName": "dynamicrenderer"
+    },
+    "peoplepicker": {
+      "path": "src/codebase/general/global/peoplepicker.js",
+      "globalName": "peoplepicker",
+      "globalDependencies": [
+        "jQuery",
+        "select2"
+      ]
+    },
+    "plotly": {
+      "path": "src/codebase/general/libraries/plotly-2.24.2.min.js",
+      "globalName": "plotly",
+      "globalDependencies": [
+        "jQuery"
+      ]
+    },
+    "speedpoint_core": {
+      "path": "src/codebase/general/libraries/speedpoint.core.js",
+      "globalName": "Speed",
+      "globalDependencies": [
+        "jQuery"
+      ]
+    },
+    "workflowengine": {
+      "path": "src/codebase/general/libraries/workflowengine.js",
+      "globalName": "workflowengine"
+    },
+    "main": {
+      "path": "src/codebase/general/global/main.js",
+      "globalName": "main",
+      "globalDependencies": [
+        "speedpoint_core","notyf"
+      ]
+    },
+    "global": {
+      "path": "src/codebase/general/global/global.js",
+      "globalName": "global"
+    },
+    "globalext": {
+      "path": "src/codebase/general/libraries/global.ext.js",
+      "globalName": "globalext",
+      "globalDependencies": [
+        "global",
+        "speedpoint_core",
+        "main"
+      ]
+    },
+    "lists": {
+      "path": "src/codebase/general/global/lists.js",
+      "globalName": "lists",
+      "globalDependencies": [
+        "global",
+        "speedpoint_core",
+        "main"
+      ]
+    },
+    "navigation": {
+      "path": "src/codebase/general/global/navigation.js",
+      "globalName": "navigation",
+      "globalDependencies": [
+        "global",
+        "speedpoint_core",
+        "main"
+      ]
+    },
+    "auditlogs": {
+      "path": "src/codebase/general/global/auditlogs.js",
+      "globalName": "auditlogs",
+      "globalDependencies": [
+        "global",
+        "speedpoint_core",
+        "main"
+      ]
+    },
+    "dashboard": {
+      "path": "src/codebase/rdc/dashboard.js",
+      "globalName": "dashboard",
+      "globalDependencies": [
+        "global",
+        "speedpoint_core",
+        "main"
+      ]
+    },
+    "newrequest": {
+      "path": "src/codebase/rdc/newrequest.js",
+      "globalName": "newrequest",
+      "globalDependencies": [
+        "global",
+        "speedpoint_core",
+        "main"
+      ]
+    },
+    "viewrequest": {
+      "path": "src/codebase/rdc/viewrequest.js",
+      "globalName": "viewrequest",
+      "globalDependencies": [
+        "global",
+        "speedpoint_core",
+        "main"
+      ]
+    },
+    "approverequest": {
+      "path": "src/codebase/rdc/approverequest.js",
+      "globalName": "approverequest",
+      "globalDependencies": [
+        "global",
+        "speedpoint_core",
+        "main"
+      ]
+    },
+    "report": {
+      "path": "src/codebase/rdc/report.js",
+      "globalName": "report",
+      "globalDependencies": [
+        "global",
+        "speedpoint_core",
+        "main"
+      ]
+    },
+    "caseapproval": {
+      "path": "src/codebase/rdc/caseapproval.js",
+      "globalName": "caseapproval",
+      "globalDependencies": [
+        "global",
+        "speedpoint_core",
+        "main"
+      ]
+    },
+    "cases": {
+      "path": "src/codebase/rdc/cases.js",
+      "globalName": "cases",
+      "globalDependencies": [
+        "global",
+        "speedpoint_core",
+        "main"
+      ]
+    },
+    "clients": {
+      "path": "src/codebase/rdc/clients.js",
+      "globalName": "clients",
+      "globalDependencies": [
+        "global",
+        "speedpoint_core",
+        "main"
+      ]
+    },
+    "newcase": {
+      "path": "src/codebase/rdc/newcase.js",
+      "globalName": "newcase",
+      "globalDependencies": [
+        "global",
+        "speedpoint_core",
+        "main"
+      ]
+    },
+    "newclient": {
+      "path": "src/codebase/rdc/newclient.js",
+      "globalName": "newclient",
+      "globalDependencies": [
+        "global",
+        "speedpoint_core",
+        "main"
+      ]
+    },
+    "settings": {
+      "path": "src/codebase/rdc/settings.js",
+      "globalName": "settings",
+      "globalDependencies": [
+        "global",
+        "speedpoint_core",
+        "main"
+      ]
+    }
+    
+  },
+  "localizedResources": {
+    "Mortgage2MWebPartStrings": "lib/webparts/mortgage2M/loc/{locale}.js"
+  }
+}
