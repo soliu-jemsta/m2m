@@ -68,6 +68,9 @@ function MainStartPoint() {
   this.clientDetails = {};
   this.clientList = [];
 
+  this.adviserDetails = {};
+  this.advisersList = [];
+
   this.AuditDetails = {};
   this.AuditList = [];
 
@@ -110,7 +113,7 @@ function whenLayoutLoaded() {
   $spcontext.loadSPDependencies(function () {
     // console.log("SP dependencies started");
     var dependenciesCount = 0;
-    var expectedDepenciesCount = 6;
+    var expectedDepenciesCount = 7;
     // speedctxRoot = new Speed();
     globalDefinitions = new GlobalDefinitionsManager();
 
@@ -260,19 +263,69 @@ function whenLayoutLoaded() {
           },
           false,
           function (item) {
-            if (item.EmailAddress) {
-              MainApplication.clientDetails[item.EmailAddress.toLowerCase()] =
-                item;
-              MainApplication.clientList.push(item);
+            const client = {
+              ID: item.ID || "",
+              Title: item.Title || "",
+              Email: item.EmailAddress || "",
+              DOB: item.DOB || "",
+              Nationality: item.Nationality || "",
+              MaritalStatus: item.MaritalStatus || "",
+              MobileNumber: item.MobileNumber || "",
+            };
+
+            if (client.Email) {
+              MainApplication.clientDetails[client.Email.toLowerCase()] = client;
+              MainApplication.clientList.push(client);
             }
 
-            return item;
+            return client;
           },
           function (items) {
             MainApplication.clientList = items;
 
             checkAppDependency();
+          }
+        );
+
+        var advisersColumn = [
+          "ID",
+          "Title",
+          "EmailAddress",
+        ];
+
+        $spcontext.getListToItems(
+          "Advisers",
+          [
+            {
+              orderby: "ID",
+              ascending: "FALSE",
+            },
+          ],
+          {
+            ignoreThreshold: false,
+            data: advisersColumn,
+            merge: false,
           },
+          false,
+          function (item) {
+
+            const adviser = {
+              Title: item.Title || "",
+              Email: item.EmailAddress || "",
+            };
+
+            if (adviser.Email) {
+              MainApplication.adviserDetails[adviser.Email.toLowerCase()] = adviser;
+              MainApplication.advisersList.push(adviser);
+            }
+
+            return adviser;
+          },
+          function (items) {
+            MainApplication.advisersList = items;
+
+            checkAppDependency();
+          }
         );
       },
     );

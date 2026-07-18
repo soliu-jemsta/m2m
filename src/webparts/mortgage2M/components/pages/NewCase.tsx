@@ -40,7 +40,7 @@ export default class NewCase extends React.Component<{}, {}> {
                   />
                 </div>
 
-                {/* <div className="form-group">
+                <div className="form-group">
                   <label>
                     Adviser <span className="req">*</span>
                   </label>
@@ -49,13 +49,14 @@ export default class NewCase extends React.Component<{}, {}> {
                     custom-people="Adviser"
                     validation-msg="Please select an Adviser"
                   />
-                </div> */}
+                </div>
               </div>
 
               <div className="form-row">
                 <div className="form-group">
                   <label>Case Priority</label>
-                  <select id="case_priority" speed-bind="CasePriority">
+                  <select id="case_priority" speed-bind-validate="CasePriority">
+                    <option value="">Select...</option>
                     <option>Normal</option>
                     <option>High</option>
                     <option>Urgent</option>
@@ -64,7 +65,7 @@ export default class NewCase extends React.Component<{}, {}> {
 
                 <div className="form-group">
                   <label>Start Date</label>
-                  <input type="date" id="case_startDate" speed-bind="StartDate"/>
+                  <input type="date" id="case_startDate" speed-bind-validate="StartDate"/>
                 </div>
               </div>
             </div>
@@ -76,23 +77,23 @@ export default class NewCase extends React.Component<{}, {}> {
               <div className="form-row">
                 <div className="form-group">
                   <label>Application Type</label>
-                  <select id="application_type"  speed-bind="ApplicationType" />
+                  <select id="application_type"  speed-bind-validate="ApplicationType" />
                 </div>
 
                 <div className="form-group hidden" id="mortgage_type_group">
                   <label>Mortgage Type</label>
-                  <select id="mortgage_type" speed-bind="MortgageType" />
+                  <select id="mortgage_type" speed-bind-validate="MortgageType" />
                 </div>
 
                 <div className="form-group hidden" id="p4l_type_group">
-      <label>Protection Type</label>
-      <select id="p4l_type" speed-bind="P4LType" />
-    </div>
+                  <label>Protection Type</label>
+                  <select id="p4l_type" speed-bind="P4LType" />
+                </div>
 
-    <div className="form-group hidden" id="gi_type_group">
-      <label>Insurance Type</label>
-      <select id="gi_type" speed-bind="GIType" />
-    </div>
+                <div className="form-group hidden" id="gi_type_group">
+                  <label>Insurance Type</label>
+                  <select id="gi_type" speed-bind="GIType" />
+                </div>
               </div>
             </div>
 

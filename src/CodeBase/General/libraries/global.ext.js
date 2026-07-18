@@ -4,8 +4,10 @@ GlobalDefinitionsManager.prototype.extendStages = function () {
     // this.stageDefinitions.workflowcode = "AUDMGT-";
 
     this.stageDefinitions.author = "Author";
-    this.stageDefinitions.management = configProperties.MANAGEMENT.setting;
+    // this.stageDefinitions.management = configProperties.MANAGEMENT.setting;
     this.stageDefinitions.admin = configProperties.REPORTADMIN.setting;
+    this.stageDefinitions.client = configProperties.CLIENT.setting;
+    this.stageDefinitions.adviser = configProperties.ADVISER.setting;
 
     this.stageDefinitions.employee = "Employee";
     // this.stageDefinitions.hod = "HOD";
@@ -38,7 +40,7 @@ GlobalDefinitionsManager.prototype.SetWorkflowRouting = function (customWorkflow
             code: "AA1",
             initiationCode: "AA0",            
             possibleRoutes: [{
-                name: globalDefinitions.stageDefinitions.employee,
+                name: globalDefinitions.stageDefinitions.adviser,
                 username: "",
                 condition: true,
                 authenticationType: customWorkflowEngine.stages.user,
@@ -49,39 +51,39 @@ GlobalDefinitionsManager.prototype.SetWorkflowRouting = function (customWorkflow
                 flow: globalDefinitions.stageDefinitions.normalflow,
                 users: []
             }]
-        }
-        // {
-        //     code: "AA2",
-        //     initiationCode: "AA1",            
-        //     possibleRoutes: [{
-        //         name: globalDefinitions.stageDefinitions.management,
-        //         username: "",
-        //         condition: true,
-        //         authenticationType: customWorkflowEngine.stages.group,
-        //         authenticationValue: null,
-        //         actionType: "Actor",
-        //         emails: [],
-        //         doa: false,
-        //         flow: globalDefinitions.stageDefinitions.normalflow,
-        //         users: []
-        //     }]
-        // },
-        // {
-        //     code: "AA3",
-        //     initiationCode: "AA2",            
-        //     possibleRoutes: [{
-        //         name: globalDefinitions.stageDefinitions.ceo,
-        //         username: "",
-        //         condition: true,
-        //         authenticationType: customWorkflowEngine.stages.group,
-        //         authenticationValue: null,
-        //         actionType: "Actor",
-        //         emails: [],
-        //         doa: false,
-        //         flow: globalDefinitions.stageDefinitions.normalflow,
-        //         users: []
-        //     }]
-        // }        
+        },
+        {
+            code: "AA2",
+            initiationCode: "AA1",            
+            possibleRoutes: [{
+                name: globalDefinitions.stageDefinitions.client,
+                username: "",
+                condition: true,
+                authenticationType: customWorkflowEngine.stages.user,
+                authenticationValue: null,
+                actionType: "Actor",
+                emails: [],
+                doa: false,
+                flow: globalDefinitions.stageDefinitions.normalflow,
+                users: []
+            }]
+        },
+        {
+            code: "AA3",
+            initiationCode: "AA2",            
+            possibleRoutes: [{
+                name: globalDefinitions.stageDefinitions.admin,
+                username: "",
+                condition: true,
+                authenticationType: customWorkflowEngine.stages.group,
+                authenticationValue: null,
+                actionType: "Actor",
+                emails: [],
+                doa: false,
+                flow: globalDefinitions.stageDefinitions.normalflow,
+                users: []
+            }]
+        }        
     ];
 }
 

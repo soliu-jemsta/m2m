@@ -280,7 +280,7 @@ const FIELD_CONFIG = {
             { key: "PropertyType", label: "Property Type", type: "Choice", required: true, options: ["Detached", "Semi-Detached", "Terraced", "Flat", "Bungalow"] },
             { key: "NumberOfBedrooms", label: "Number of Bedrooms", type: "Number", required: true },
             { key: "PropertyOwnershipStatus", label: "Property Ownership Status", type: "Choice", required: true, options: ["Owner Occupied", "Let Property", "Unoccupied"] },
-            { key: "SecurityFeatures", label: "Security Features", type: "MultiChoice", required: false, options: ["Alarm", "CCTV", "Multi-Point Locks", "Neighbourhood Watch"] },
+            { key: "SecurityFeatures", label: "Security Features", type: "MultiChoice", required: true, options: ["Alarm", "CCTV", "Multi-Point Locks", "Neighbourhood Watch"] },
             { key: "ClaimsInLast5Years", label: "Claims in Last 5 Years", type: "YesNo", required: true },
             { key: "ClaimsDetails", label: "Claims Details", type: "MultilineText", required: false, conditionalOn: "ClaimsInLast5Years", conditionalValue: "Yes" },
             { key: "CurrentInsurer", label: "Current Insurer", type: "Text", required: false },
@@ -294,27 +294,27 @@ const FIELD_CONFIG = {
    ============================================================ */
 
 function renderInput(field) {
-    const req = field.required ? "required" : "";
+    const req = field.required ? "speed-bind-validate" : "speed-bind";
 
     switch (field.type) {
         case "Text":
-            return `<input type="text" id="${field.key}" speed-bind="${field.key}" ${req} />`;
+            return `<input type="text" placeholder="Enter text" id="${field.key}" ${req}="${field.key}"  />`;
 
         case "Number":
-            return `<input type="number" id="${field.key}" speed-bind="${field.key}" ${req} />`;
+            return `<input type="number" placeholder="Enter nunber" id="${field.key}" ${req}="${field.key}"  />`;
 
         case "Currency":
-            return `<input type="number" step="0.01" id="${field.key}" speed-bind="${field.key}" ${req} />`;
+            return `<input type="number" placeholder="Enter Amount" step="0.01" id="${field.key}" ${req}="${field.key}"  />`;
 
         case "Date":
-            return `<input type="date" id="${field.key}" speed-bind="${field.key}" ${req} />`;
+            return `<input type="date" id="${field.key}" ${req}="${field.key}"  />`;
 
         case "MultilineText":
-            return `<textarea id="${field.key}" speed-bind="${field.key}" ${req}></textarea>`;
+            return `<textarea placeholder="Enter text here" id="${field.key}" ${req}="${field.key}" ></textarea>`;
 
         case "YesNo":
             return `
-                <select id="${field.key}" speed-bind="${field.key}" ${req}>
+                <select id="${field.key}" ${req}="${field.key}" >
                     <option value="">Select...</option>
                     <option value="Yes">Yes</option>
                     <option value="No">No</option>
@@ -322,19 +322,33 @@ function renderInput(field) {
 
         case "Choice":
             return `
-                <select id="${field.key}" speed-bind="${field.key}" ${req}>
+                <select id="${field.key}" ${req}="${field.key}" >
                     <option value="">Select...</option>
                     ${field.options.map((o) => `<option value="${o}">${o}</option>`).join("")}
                 </select>`;
 
         case "MultiChoice":
             return `
-                <select id="${field.key}" speed-bind="${field.key}" multiple ${req}>
-                    ${field.options.map((o) => `<option value="${o}">${o}</option>`).join("")}
-                </select>`;
+                <div class="multi-choice-group">
+                    ${field.options
+                        .map(
+                            (o) => `
+                                <input
+                                    sptype="multivalue"
+                                    sptype-label="${o}"
+                                    type="checkbox"
+                                    value="${o}"
+                                    ${req}="${field.key}"
+                                    name="${field.key}"
+                                />
+                                <span>${o}</span>
+                        `
+                        )
+                        .join("")}
+                </div>`;
 
         default:
-            return `<input type="text" id="${field.key}" speed-bind="${field.key}" />`;
+            return `<input type="text" id="${field.key}" ${req}="${field.key}" />`;
     }
 }
 
@@ -443,7 +457,7 @@ function onApplicationTypeChange() {
     const $selectEl = $(`#${group.selectId}`);
     const types = TYPES_BY_CATEGORY[category];
 
-    populateSelect($selectEl, types, "-- Select Type --");
+    populateSelect($selectEl, types, "Select Type");
     $groupEl.removeClass("hidden");
 
     $selectEl.off("change", onTypeChange).on("change", onTypeChange);
@@ -461,7 +475,7 @@ function initDynamicMortgageForm() {
     const $appTypeSelect = $("#application_type");
     if (!$appTypeSelect.length) return;
 
-    populateSelect($appTypeSelect, APPLICATION_TYPES, "-- Select Application Type --");
+    populateSelect($appTypeSelect, APPLICATION_TYPES, "Select Application Type");
     $appTypeSelect.off("change", onApplicationTypeChange).on("change", onApplicationTypeChange);
 }
 

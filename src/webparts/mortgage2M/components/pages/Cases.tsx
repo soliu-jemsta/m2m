@@ -46,20 +46,22 @@ export default class Cases extends React.Component<{}, {}> {
               <table>
                 <thead>
                   <tr>
-                    <th>Reference</th>
-                    <th>Client(s)</th>
-                    <th>Adviser</th>
-                    <th>Lender</th>
-                    <th>Loan</th>
-                    <th>Stage</th>
-                    <th>Approval</th>
+                    <th>S/N</th>
+                    <th speed-table-data="WorkflowRequestID">Reference</th>
+                    <th speed-table-data="Client">Client(s)</th>
+                    <th speed-table-data="Adviser">Adviser</th>
+                    <th speed-table-data="Lender">Lender</th>
+                    <th speed-table-data="LoanAmountRequired">Loan</th>
+                    <th speed-table-data="Stage">Stage</th>
+                    <th speed-table-data="Modified">Action</th>
                     <th />
                   </tr>
                 </thead>
-                <tbody id="casesTable" />
+                <tbody id="speed-data-table" />
               </table>
             </div>
           </div>
+          <div id="myrequestpagination" className="pagination" />
         </div>
       </>
     );

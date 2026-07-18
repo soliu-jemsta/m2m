@@ -502,3 +502,35 @@ tbody td:first-child{color:var(--text);font-weight:600}
   gap: 12px;
   padding: 0 10px;
 }
+
+.multi-choice-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px 24px;           /* Horizontal & Vertical spacing */
+    margin-top: 8px;
+    align-items: center;
+}
+
+/* Each checkbox + label row */
+.multi-choice-group label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 15px;
+    color: #334155;
+    white-space: nowrap;      /* Prevents text from breaking */
+}
+
+/* Style the default checkbox a bit nicer */
+.multi-choice-group input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: #3b82f6;    /* Blue color when checked */
+    cursor: pointer;
+}
+
+/* Optional: Add some hover effect */
+.multi-choice-group label:hover {
+    color: #1e40af;
+}
