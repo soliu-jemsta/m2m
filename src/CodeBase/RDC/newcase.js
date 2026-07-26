@@ -51,7 +51,6 @@ function whenNewCaseLoaded() {
 	
 	setTimeout(() => {
 		globalDefinitions.closeLoader();
-		console.log("New Case page has finished loading!!!");
 	}, 2000);
 }
 

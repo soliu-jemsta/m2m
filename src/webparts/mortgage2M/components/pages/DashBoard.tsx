@@ -23,10 +23,10 @@ export default class DashBoard extends React.Component<{}, {}> {
                 </div>
               </div>
               <div className="stat-value" id="dash-active">
-                24
+                —
               </div>
               <div className="stat-sub">
-                <span className="stat-delta delta-up">+3</span> this week
+                <span className="stat-delta delta-up" id="dash-active-delta" />
               </div>
             </div>
             <div className="stat-card">
@@ -36,9 +36,8 @@ export default class DashBoard extends React.Component<{}, {}> {
                   💷
                 </div>
               </div>
-              <div className="stat-value">£8.4M</div>
-              <div className="stat-sub">
-                <span className="stat-delta delta-up">+12%</span> vs last month
+              <div className="stat-value" id="dash-pipeline">
+                —
               </div>
             </div>
             <div className="stat-card">
@@ -48,9 +47,8 @@ export default class DashBoard extends React.Component<{}, {}> {
                   ✅
                 </div>
               </div>
-              <div className="stat-value">7</div>
-              <div className="stat-sub">
-                <span className="stat-delta delta-up">+2</span> ahead of target
+              <div className="stat-value" id="dash-completions">
+                —
               </div>
             </div>
             <div className="stat-card">
@@ -61,7 +59,7 @@ export default class DashBoard extends React.Component<{}, {}> {
                 </div>
               </div>
               <div className="stat-value" id="dash-approvals">
-                3
+                —
               </div>
               <div className="stat-sub">
                 <span className="stat-delta delta-down">Needs action</span>
@@ -81,14 +79,16 @@ export default class DashBoard extends React.Component<{}, {}> {
                   <table>
                     <thead>
                       <tr>
-                        <th>Reference</th>
-                        <th>Client</th>
-                        <th>Stage</th>
-                        <th>Value</th>
-                        <th>Approval</th>
+                        <th>S/N</th>
+                        <th speed-table-data="WorkflowRequestID">Reference</th>
+                        <th speed-table-data="Client">Client(s)</th>
+                        <th speed-table-data="Adviser">Adviser</th>
+                        <th speed-table-data="LoanAmountRequired">Loan</th>
+                        <th speed-table-data="Approval_Status">Stage</th>
+                        <th />
                       </tr>
                     </thead>
-                    <tbody id="dashCaseTable"></tbody>
+                    <tbody id="speed-data-table" />
                   </table>
                 </div>
               </div>
@@ -259,11 +259,9 @@ export default class DashBoard extends React.Component<{}, {}> {
               </div>
             </div>
           </div>
-          <div className="section-hdr">
+          <div className="section-hdr hidden">
             <h2>Tasks Due Today</h2>
-            <button className="link-btn">
-              View all →
-            </button>
+            <button className="link-btn">View all →</button>
           </div>
           <div className="card" id="dashTasks" />
         </div>

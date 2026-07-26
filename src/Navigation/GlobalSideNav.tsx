@@ -54,7 +54,7 @@ const GlobalSideNav: React.FC<GlobalSideNavProps> = ({ closeSidebar }) => {
                 <span className="nav-icon">📁</span>
                 Cases
                 <span className="nav-badge" id="caseBadge">
-                    24
+                    0
                 </span>
             </Link>
 

@@ -44,7 +44,9 @@ function whenNewClientLoaded() {
 //   customWorkflowEngine
 //     .routeEngine(customWorkflowEngine)
 //     .setCurrentUserAsInitiator();
-  globalDefinitions.closeLoader();
+  setTimeout(() => {
+		globalDefinitions.closeLoader();
+	}, 2000);
 }
 
 MainApplication.NewClientComponent.confirmSubmit = function (action) {

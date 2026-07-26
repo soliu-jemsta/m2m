@@ -10,6 +10,12 @@ loadCasesComponent = function () {
 
 var AppRequest;
 
+// Update to match your actual Approval_Status choice values
+var CASES_STATUS = {
+    closedStatuses: ["Completed", "Declined"],
+    pendingApprovalStatus: "Pending"
+};
+
 MainApplication.CasesComponent.ApplicationDetails = function () {
 	this.url = window.location.href;
 	this.itemId = null;
@@ -19,6 +25,7 @@ MainApplication.CasesComponent.ApplicationDetails = function () {
 	this.transactionHistory = [];
 	this.defaultStage = "AA0";
 	this.returned = null;
+	this.activeFilter = "all";
 };
 
 whenCasesLoaded = function () {
@@ -45,16 +52,10 @@ whenCasesLoaded = function () {
     
     $spcontext.DataForTable.propertiesHandler = {
 		"Client": function (valueToEva) {
-			return valueToEva.Title;
+			return valueToEva.Client.value;
 		},
 		"Adviser": function (valueToEva) {
-			return valueToEva.Title;
-		},
-		"Lender": function (valueToEva) {
-			return valueToEva.Title;
-		},
-		"Stage": function (valueToEva) {
-			return valueToEva.Title;
+			return valueToEva.Adviser.value;
 		},
         "Modified": function (valueToEva) {
             var viewStr = `
@@ -88,6 +89,17 @@ whenCasesLoaded = function () {
         // debounceTimer = setTimeout(() => {
             MainApplication.CasesComponent.retrieveRequest();
         // }, 500);
+    });
+
+    $(".ft").click(function () {
+        $(".ft").removeClass("active");
+        $(this).addClass("active");
+        AppRequest.activeFilter = $(this).data("filter") || "all";
+        MainApplication.CasesComponent.applyFilters();
+    });
+
+    $("#searchbar").on("keyup", function () {
+        MainApplication.CasesComponent.applyFilters();
     });
 
     // $("#exportbtn").click(() => {
@@ -131,17 +143,40 @@ MainApplication.CasesComponent.retrieveRequest = function () {
     var extraProperties = {
         merge: true,
         data: [
-            "ID", "Title", "Lender", "Adviser", "Client", "Modified", "Cases", "Stage", "Status", "Loan"
+            "ID", "Title", "Lender", "Adviser", "Client", "Modified", "Approval_Status", "ApplicationType", "LoanAmountRequired"
         ]
     };
 
     $spcontext.getListToItems(configProperties.CASESLIST.setting, query, extraProperties, true, null, function (tableData) {
-        
+        $("#caseBadge").html(tableData.length || 0);
         AppRequest.fullTableData = tableData;
 
 		globalDefinitions.closeLoader();
-        MainApplication.CasesComponent.showTableData(tableData);
+        MainApplication.CasesComponent.applyFilters();
     });
+};
+
+// Applies the active status tab, then the search box, on top of the last fetched data
+MainApplication.CasesComponent.applyFilters = function () {
+    var data = AppRequest.fullTableData || [];
+    var filter = AppRequest.activeFilter || "all";
+
+    if (filter === "completed") {
+    data = data.filter(function (item) {
+        return CASES_STATUS.closedStatuses.indexOf(item.Approval_Status) !== -1; // ✅ keeps only closed cases
+    });
+} else if (filter === "pending") {
+        data = data.filter(function (item) {
+            return item.Approval_Status === CASES_STATUS.pendingApprovalStatus;
+        });
+    }
+
+    var searchQuery = $("#searchbar").val();
+    if (searchQuery) {
+        data = MainApplication.reportSyncSearch(searchQuery, data);
+    }
+
+    MainApplication.CasesComponent.showTableData(data);
 };
 
 MainApplication.CasesComponent.showTableData = function (tableData) {

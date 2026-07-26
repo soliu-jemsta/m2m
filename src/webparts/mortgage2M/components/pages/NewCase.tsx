@@ -82,7 +82,7 @@ export default class NewCase extends React.Component<{}, {}> {
 
                 <div className="form-group hidden" id="mortgage_type_group">
                   <label>Mortgage Type</label>
-                  <select id="mortgage_type" speed-bind-validate="MortgageType" />
+                  <select id="mortgage_type" speed-bind="MortgageType" />
                 </div>
 
                 <div className="form-group hidden" id="p4l_type_group">

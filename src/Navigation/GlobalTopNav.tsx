@@ -96,6 +96,7 @@ const GlobalTopNav: React.FC<GlobalTopNavProps> = ({
                 </span>
 
                 <input
+                    id="searchbar"
                     type="text"
                     placeholder="Search cases, clients…"
                 />
@@ -118,7 +119,7 @@ const GlobalTopNav: React.FC<GlobalTopNavProps> = ({
             </button>
 
             <button
-                className="new-case-btn"
+                className="new-case-btn hidden"
                 onClick={openNewCaseModal}
             >
                 ＋ <span className="btn-text">New Case</span>

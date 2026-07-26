@@ -79,7 +79,7 @@ function MainStartPoint() {
   this.isPureHOD = false;
 
   this.CaseApprovalComponent = {};
-  this.DashboardComponent = {};
+  this.DashBoardComponent = {};
   this.CasesComponent = {};
   this.ClientsComponent = {};
   this.ReportComponent = {};
@@ -375,6 +375,7 @@ function whenLayoutLoaded() {
           // $(".newNCNavMobile").show();
         }
 
+        MainApplication.pendingRequests();
         $spcontext.errorHandler = globalDefinitions.errorHandler;
         MainApplication.cachedState.mode = true;
         MainApplication.cachedState.pageStateCall();
@@ -699,14 +700,14 @@ MainApplication.pendingRequests = function () {
       val: "Pending",
     },
   ];
-  if (MainApplication.isUserAnActor) {
-    queryCaml.push({
-      operator: "Eq",
-      field: "Current_Approver",
-      type: "Text",
-      val: globalDefinitions.stageDefinitions.management,
-    });
-  }
+  // if (MainApplication.isUserAnActor) {
+  //   queryCaml.push({
+  //     operator: "Eq",
+  //     field: "Current_Approver",
+  //     type: "Text",
+  //     val: globalDefinitions.stageDefinitions.management,
+  //   });
+  // }
 
   // queryCaml = customWorkflowEngine.setupTaskForGroups(queryCaml);
   var query = $spcontext.camlBuilder(queryCaml);
@@ -727,24 +728,20 @@ MainApplication.pendingRequests = function () {
       "Modified",
       "PendingUserEmail",
       "PendingUserLogin",
-      "Attachment_Folder",
-      "AttachmentURL",
-      "Author",
-      "Title",
-      "HOD",
-      "EmployeeEmail",
+      "Lender", "Adviser", "Client",
+      "ApplicationType", "LoanAmountRequired",
       "Year",
       "Month",
     ],
   };
   $spcontext.getListToItems(
-    configProperties.VBLIST.setting,
+    configProperties.CASESLIST.setting,
     query,
     extraProperties,
     true,
     null,
     function (data) {
-      $("#reviewtask").html(data.length || 0);
+      $("#caseBadge").html(data.length || 0);
     },
   );
 };

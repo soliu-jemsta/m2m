@@ -31,6 +31,11 @@
 [data-automationid="AppChrome"] {
   margin: 0 !important;
   border-radius: 0 !important;
+  border: 0 !important;
+}
+
+[data-automation-id="contentScrollRegion"] {
+  overflow: hidden !important;
 }
 
 input[type="number"] {

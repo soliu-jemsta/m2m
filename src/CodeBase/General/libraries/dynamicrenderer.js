@@ -18,24 +18,24 @@ const APPLICATION_TYPES = [
 
 const TYPES_BY_CATEGORY = {
     MORTGAGE: [
-        { value: "RES_PURCHASE", text: "Residential Purchase" },
-        { value: "RES_REMORTGAGE", text: "Residential Remortgage" },
-        { value: "BTL_PURCHASE", text: "Buy-to-Let Purchase" },
-        { value: "BTL_REMORTGAGE", text: "Buy-to-Let Remortgage" },
-        { value: "PROD_TRANSFER", text: "Product Transfer" },
-        { value: "SHARED_OWNERSHIP", text: "Shared Ownership" },
-        { value: "BRIDGING", text: "Bridging" },
-        { value: "SECOND_CHARGE", text: "Second Charge" },
-        { value: "RIGHT_TO_BUY", text: "Right to Buy" },
+        { value: "Residential Purchase", text: "Residential Purchase" },
+        { value: "Residential Remortgage", text: "Residential Remortgage" },
+        { value: "Buy-to-Let Purchase", text: "Buy-to-Let Purchase" },
+        { value: "Buy-to-Let Remortgage", text: "Buy-to-Let Remortgage" },
+        { value: "Product Transfer", text: "Product Transfer" },
+        { value: "Shared Ownership", text: "Shared Ownership" },
+        { value: "Bridging", text: "Bridging" },
+        { value: "Second Charge", text: "Second Charge" },
+        { value: "Right to Buy", text: "Right to Buy" },
     ],
     P4L: [
-        { value: "PROTECTION_ONLY", text: "Protection Only" },
-        { value: "LIFE_INSURANCE", text: "Life Insurance" },
-        { value: "CIC", text: "Critical Illness Cover" },
-        { value: "INCOME_PROTECTION", text: "Income Protection" },
+        { value: "Protection Only", text: "Protection Only" },
+        { value: "Life Insurance", text: "Life Insurance" },
+        { value: "Critical Illness Cover", text: "Critical Illness Cover" },
+        { value: "Income Protection", text: "Income Protection" },
     ],
     GI: [
-        { value: "GENERAL_INSURANCE", text: "General Insurance" },
+        { value: "General Insurance", text: "General Insurance" },
     ],
 };
 
@@ -53,7 +53,7 @@ const CATEGORY_GROUP_MAP = {
    referenced field's value matches                              */
 
 const FIELD_CONFIG = {
-    RES_PURCHASE: {
+    "Residential Purchase": {
         title: "Residential Purchase Details",
         fields: [
             { key: "PropertyAddress", label: "Property Address", type: "Text", required: true },
@@ -74,7 +74,7 @@ const FIELD_CONFIG = {
         ],
     },
 
-    RES_REMORTGAGE: {
+    "Residential Remortgage": {
         title: "Residential Remortgage Details",
         fields: [
             { key: "CurrentPropertyAddress", label: "Current Property Address", type: "Text", required: true },
@@ -96,7 +96,7 @@ const FIELD_CONFIG = {
         ],
     },
 
-    BTL_PURCHASE: {
+    "Buy-to-Let Purchase": {
         title: "Buy-to-Let Purchase Details",
         fields: [
             { key: "PropertyAddress", label: "Property Address", type: "Text", required: true },
@@ -115,7 +115,7 @@ const FIELD_CONFIG = {
         ],
     },
 
-    BTL_REMORTGAGE: {
+    "Buy-to-Let Remortgage": {
         title: "Buy-to-Let Remortgage Details",
         fields: [
             { key: "PropertyAddress", label: "Property Address", type: "Text", required: true },
@@ -134,7 +134,7 @@ const FIELD_CONFIG = {
         ],
     },
 
-    PROD_TRANSFER: {
+    "Product Transfer": {
         title: "Product Transfer Details",
         fields: [
             { key: "CurrentLender", label: "Current Lender", type: "Text", required: true },
@@ -149,7 +149,7 @@ const FIELD_CONFIG = {
         ],
     },
 
-    SHARED_OWNERSHIP: {
+    "Shared Ownership": {
         title: "Shared Ownership Details",
         fields: [
             { key: "PropertyAddress", label: "Property Address", type: "Text", required: true },
@@ -167,7 +167,7 @@ const FIELD_CONFIG = {
         ],
     },
 
-    BRIDGING: {
+    "Bridging": {
         title: "Bridging Loan Details",
         fields: [
             { key: "SecurityPropertyAddress", label: "Security Property Address", type: "Text", required: true },
@@ -183,7 +183,7 @@ const FIELD_CONFIG = {
         ],
     },
 
-    SECOND_CHARGE: {
+    "Second Charge": {
         title: "Second Charge Details",
         fields: [
             { key: "PropertyAddress", label: "Property Address", type: "Text", required: true },
@@ -198,7 +198,7 @@ const FIELD_CONFIG = {
         ],
     },
 
-    RIGHT_TO_BUY: {
+    "Right to Buy": {
         title: "Right to Buy Details",
         fields: [
             { key: "CouncilHousingAssociationName", label: "Council / Housing Association Name", type: "Text", required: true },
@@ -214,7 +214,7 @@ const FIELD_CONFIG = {
         ],
     },
 
-    PROTECTION_ONLY: {
+    "Protection Only": {
         title: "Protection Enquiry Details",
         fields: [
             { key: "ReasonForReview", label: "Reason for Review", type: "Choice", required: true, options: ["New Mortgage", "Family Protection", "Business Protection", "Existing Policy Review"] },
@@ -225,7 +225,7 @@ const FIELD_CONFIG = {
         ],
     },
 
-    LIFE_INSURANCE: {
+    "Life Insurance": {
         title: "Life Insurance Details",
         fields: [
             { key: "PolicyType", label: "Policy Type", type: "Choice", required: true, options: ["Level Term", "Decreasing Term", "Whole of Life", "Family Income Benefit"] },
@@ -241,7 +241,7 @@ const FIELD_CONFIG = {
         ],
     },
 
-    CIC: {
+    "Critical Illness Cover": {
         title: "Critical Illness Cover Details",
         fields: [
             { key: "PolicyType", label: "Policy Type", type: "Choice", required: true, options: ["Standalone CIC", "Combined Life + CIC"] },
@@ -256,7 +256,7 @@ const FIELD_CONFIG = {
         ],
     },
 
-    INCOME_PROTECTION: {
+    "Income Protection": {
         title: "Income Protection Details",
         fields: [
             { key: "MonthlyBenefitRequired", label: "Monthly Benefit Required", type: "Currency", required: true },
@@ -270,7 +270,7 @@ const FIELD_CONFIG = {
         ],
     },
 
-    GENERAL_INSURANCE: {
+    "General Insurance": {
         title: "General Insurance Details",
         fields: [
             { key: "InsuranceType", label: "Insurance Type", type: "Choice", required: true, options: ["Buildings", "Contents", "Buildings & Contents", "Landlord Insurance"] },

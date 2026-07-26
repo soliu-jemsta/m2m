@@ -24,14 +24,14 @@ export default class Cases extends React.Component<{}, {}> {
               }}
             >
               <div className="filter-tabs">
-                <div className="ft active">
+                <div className="ft active" data-filter="all">
                   All
                 </div>
-                <div className="ft">
-                  Active
+                <div className="ft" data-filter="pending">
+                  Pending
                 </div>
-                <div className="ft">
-                  Pending Approval
+                <div className="ft" data-filter="completed">
+                  Closed
                 </div>
               </div>
               <Link to='/new-case'
@@ -50,9 +50,9 @@ export default class Cases extends React.Component<{}, {}> {
                     <th speed-table-data="WorkflowRequestID">Reference</th>
                     <th speed-table-data="Client">Client(s)</th>
                     <th speed-table-data="Adviser">Adviser</th>
-                    <th speed-table-data="Lender">Lender</th>
+                    {/* <th speed-table-data="Lender">Lender</th> */}
                     <th speed-table-data="LoanAmountRequired">Loan</th>
-                    <th speed-table-data="Stage">Stage</th>
+                    <th speed-table-data="Approval_Status">Stage</th>
                     <th speed-table-data="Modified">Action</th>
                     <th />
                   </tr>
