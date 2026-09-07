@@ -17,7 +17,6 @@ import { HelmetProvider } from "react-helmet-async";
 
 
 require('main');
-
 declare global {
     interface Window {
         globalProp: any;

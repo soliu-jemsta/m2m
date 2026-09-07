@@ -9,7 +9,7 @@
 /* ---------- 1. Application Type (category) options ---------- */
 
 const APPLICATION_TYPES = [
-    { value: "MORTGAGE", text: "Mortgage Type" },
+    { value: "MORTGAGE", text: "Mortgage" },
     { value: "P4L", text: "P4L (Protection for Life)" },
     { value: "GI", text: "General Insurance" },
 ];
@@ -46,7 +46,74 @@ const CATEGORY_GROUP_MAP = {
     GI: { groupId: "gi_type_group", selectId: "gi_type" },
 };
 
-/* ---------- 3. Field definitions per type ---------- */
+
+const MORTGAGE_FIELD_POOL = {
+    SecurityAddress: { key: "SecurityAddress", label: "Property / Security Address", type: "Text" },
+    PropertyValue: { key: "PropertyValue", label: "Property Value", type: "Currency" },
+    LoanAmount: { key: "LoanAmount", label: "Loan Amount", type: "Currency" },
+    CapitalRaising: { key: "CapitalRaising", label: "Capital Raising", type: "YesNo" },
+    RepaymentType: { key: "RepaymentType", label: "Repayment Type", type: "Choice", options: ["Repayment", "Interest-Only", "Part & Part"] },
+    InterestRate: { key: "InterestRate", label: "Interest Rate (%)", type: "Number" },
+    FixedPeriod: { key: "FixedPeriod", label: "Fixed Period (Years)", type: "Number" },
+    MonthlyPayment: { key: "MonthlyPayment", label: "Monthly Payment", type: "Currency" },
+    FeesAddedToLoan: { key: "FeesAddedToLoan", label: "Fees Added to Loan", type: "Currency" },
+    NewLender: { key: "NewLender", label: "New Lender", type: "Choice", options: [] /* TODO: lender list */ },
+    MortgageAccountNumber: { key: "MortgageAccountNumber", label: "Mortgage Account Number", type: "Text" },
+    Adviser: { key: "Adviser", label: "Adviser", type: "Choice", options: [] /* TODO: adviser list */ },
+    SubmissionRoute: { key: "SubmissionRoute", label: "Submission Route", type: "Choice", options: [] /* TODO */ },
+    PropertyInfo: { key: "PropertyInfo", label: "Property Info", type: "MultilineText" },
+    DetailsOfRecommendedProduct: { key: "DetailsOfRecommendedProduct", label: "Details of Recommended Product", type: "MultilineText" },
+    LeadDate: { key: "LeadDate", label: "Lead Date", type: "Date" },
+    NextActionDate: { key: "NextActionDate", label: "Next Action Date", type: "Date" },
+    NextCaseAction: { key: "NextCaseAction", label: "Next Case Action", type: "Text" },
+    Notes: { key: "Notes", label: "Notes", type: "MultilineText" },
+};
+
+const P4L_FIELD_POOL = {
+    PolicyType: { key: "PolicyType", label: "Policy Type", type: "Choice", options: [] /* TODO */ },
+    SumAssured: { key: "SumAssured", label: "Sum Assured / Monthly Benefit", type: "Currency" },
+    Term_Years: { key: "Term_Years", label: "Term (Years)", type: "Number" },
+    PolicyProvider: { key: "PolicyProvider", label: "Policy Provider", type: "Choice", options: [] /* TODO */ },
+    OnRiskDate: { key: "OnRiskDate", label: "On Risk Date", type: "Date" },
+    Status: { key: "Status", label: "Status", type: "Choice", options: [] /* TODO */ },
+    CommissionAmount: { key: "CommissionAmount", label: "Commission Amount", type: "Currency" },
+    CommissionType: { key: "CommissionType", label: "Commission Type", type: "Choice", options: [] /* TODO */ },
+    CommissionPeriod: { key: "CommissionPeriod", label: "Commission Period", type: "Number" },
+    PolicyPremium: { key: "PolicyPremium", label: "Policy Premium", type: "Currency" },
+    NextActionDate: { key: "NextActionDate", label: "Next Action Date", type: "Date" },
+    NextActionDescription: { key: "NextActionDescription", label: "Next Action Description", type: "Text" },
+    Comments: { key: "Comments", label: "Comments", type: "MultilineText" },
+};
+
+const GI_FIELD_POOL = {
+    PolicyType: { key: "PolicyType", label: "Policy Type", type: "Choice", options: ["Home-Building and Contents", "Home-Building Only", "Home-Content Only", "Landlord-Building Only", "Landlord-Building and Content" ] /* TODO: Buildings, Contents, Landlord... */ },
+    SecurityAddress: { key: "SecurityAddress", label: "Property Address", type: "Text" },
+    Insurer: { key: "Insurer", label: "Insurer", type: "Choice", options: ["Aviva", "Ageas", "Alianz", "Arkel", "Axa" ] /* TODO */ },
+    PolicyNumber: { key: "PolicyNumber", label: "Policy Number", type: "Text" },
+    PolicyRefTheSource: { key: "PolicyRefTheSource", label: "Policy Ref (Source System)", type: "Text" },
+    SourcingSystem: { key: "SourcingSystem", label: "Sourcing System", type: "Choice", options: ["LV", "PaymentShield", "The Source", "UInsure"] /* TODO */ },
+    OnRiskDate: { key: "OnRiskDate", label: "On Risk Date", type: "Date" },
+    CurrentPremiumAnnual: { key: "CurrentPremiumAnnual", label: "Current Premium (Annual)", type: "Currency" },
+    CurrentPremiumMonthly: { key: "CurrentPremiumMonthly", label: "Current Premium (Monthly)", type: "Currency" },
+    PaymentMethod: { key: "PaymentMethod", label: "Payment Method", type: "Choice", options: ["Monthly", "Annually"] /* TODO */ },
+    Status: { key: "Status", label: "Status", type: "Choice", options: ["Quote", "Live", "Cancelled", "Lapsed/Expired"] /* TODO */ },
+    SLStatus: { key: "SLStatus", label: "SL Status", type: "Choice", options: ["N/A", "Incomplete", "Drafted", "Sent"] /* TODO */ },
+    RenewalPremiumAnnual: { key: "RenewalPremiumAnnual", label: "Renewal Premium (Annual)", type: "Currency" },
+    BrokersCommission: { key: "BrokersCommission", label: "Broker's Commission", type: "Currency" },
+    Comments: { key: "Comments", label: "Comments", type: "MultilineText" },
+};
+
+/* Picks fields from a pool by key, in the order given, applying
+   any per-field overrides (required / conditionalOn / conditionalValue). */
+function pick(pool, specs) {
+    return specs.map(([key, overrides = {}]) => ({
+        ...pool[key],
+        required: false,
+        ...overrides,
+    }));
+}
+
+/* ---------- 3b. Field definitions per type ---------- */
 /* type: "Text" | "MultilineText" | "Number" | "Currency" | "Date"
        | "Choice" | "MultiChoice" | "YesNo"
    conditionalOn / conditionalValue: field only shows when the
@@ -55,237 +122,174 @@ const CATEGORY_GROUP_MAP = {
 const FIELD_CONFIG = {
     "Residential Purchase": {
         title: "Residential Purchase Details",
-        fields: [
-            { key: "PropertyAddress", label: "Property Address", type: "Text", required: true },
-            { key: "PropertyType", label: "Property Type", type: "Choice", required: true, options: ["Detached", "Semi-Detached", "Terraced", "Flat", "Bungalow", "New Build"] },
-            { key: "PurchasePrice", label: "Purchase Price", type: "Currency", required: true },
-            { key: "DepositAmount", label: "Deposit Amount", type: "Currency", required: true },
-            { key: "DepositSource", label: "Deposit Source", type: "Choice", required: true, options: ["Savings", "Gift", "Sale of Property", "Inheritance", "Other"] },
-            { key: "LoanAmountRequired", label: "Loan Amount Required", type: "Currency", required: true },
-            { key: "MortgageTermYears", label: "Mortgage Term (Years)", type: "Number", required: true },
-            { key: "RepaymentType", label: "Repayment Type", type: "Choice", required: true, options: ["Repayment", "Interest-Only", "Part & Part"] },
-            { key: "FirstTimeBuyer", label: "First Time Buyer", type: "YesNo", required: true },
-            { key: "GovernmentSchemeUsed", label: "Government Scheme Used", type: "Choice", required: false, options: ["None", "Help to Buy", "First Homes", "Deposit Unlock"] },
-            { key: "EmploymentStatus", label: "Employment Status", type: "Choice", required: true, options: ["Employed", "Self-Employed", "Contractor", "Retired"] },
-            { key: "GrossAnnualIncome", label: "Gross Annual Income", type: "Currency", required: true },
-            { key: "SolicitorConveyancer", label: "Solicitor / Conveyancer", type: "Text", required: false },
-            { key: "TargetExchangeDate", label: "Target Exchange Date", type: "Date", required: false },
-            { key: "TargetCompletionDate", label: "Target Completion Date", type: "Date", required: false },
-        ],
+        fields: pick(MORTGAGE_FIELD_POOL, [
+            ["SecurityAddress", { required: true }],
+            ["PropertyValue", { required: true }],
+            ["LoanAmount", { required: true }],
+            ["RepaymentType", { required: true }],
+            ["InterestRate"], ["FixedPeriod"], ["MonthlyPayment"], ["FeesAddedToLoan"],
+            ["Adviser"], ["SubmissionRoute"], ["PropertyInfo"], ["DetailsOfRecommendedProduct"],
+            ["LeadDate"], ["NextActionDate"], ["NextCaseAction"], ["Notes"],
+        ]),
     },
 
     "Residential Remortgage": {
         title: "Residential Remortgage Details",
-        fields: [
-            { key: "CurrentPropertyAddress", label: "Current Property Address", type: "Text", required: true },
-            { key: "CurrentLender", label: "Current Lender", type: "Text", required: true },
-            { key: "CurrentMortgageBalance", label: "Current Mortgage Balance", type: "Currency", required: true },
-            { key: "CurrentInterestRate", label: "Current Interest Rate (%)", type: "Number", required: true },
-            { key: "CurrentMortgageType", label: "Current Mortgage Type", type: "Choice", required: true, options: ["Fixed", "Tracker", "Variable", "Discount"] },
-            { key: "CurrentDealEndDate", label: "Current Deal End Date", type: "Date", required: true },
-            { key: "EstimatedPropertyValue", label: "Estimated Property Value", type: "Currency", required: true },
-            { key: "ReasonForRemortgage", label: "Reason for Remortgage", type: "Choice", required: true, options: ["Better Rate", "Capital Raising", "Debt Consolidation", "Home Improvements", "Other"] },
-            { key: "AdditionalBorrowingRequired", label: "Additional Borrowing Required", type: "YesNo", required: true },
-            { key: "AdditionalBorrowingAmount", label: "Additional Borrowing Amount", type: "Currency", required: false, conditionalOn: "AdditionalBorrowingRequired", conditionalValue: "Yes" },
-            { key: "PurposeOfAdditionalBorrowing", label: "Purpose of Additional Borrowing", type: "Text", required: false, conditionalOn: "AdditionalBorrowingRequired", conditionalValue: "Yes" },
-            { key: "NewLoanAmount", label: "New Loan Amount", type: "Currency", required: true },
-            { key: "NewMortgageTermYears", label: "New Mortgage Term (Years)", type: "Number", required: true },
-            { key: "RepaymentType", label: "Repayment Type", type: "Choice", required: true, options: ["Repayment", "Interest-Only", "Part & Part"] },
-            { key: "EarlyRepaymentChargeApplies", label: "Early Repayment Charge Applies", type: "YesNo", required: true },
-            { key: "ERCAmount", label: "ERC Amount", type: "Currency", required: false, conditionalOn: "EarlyRepaymentChargeApplies", conditionalValue: "Yes" },
-        ],
+        fields: pick(MORTGAGE_FIELD_POOL, [
+            ["SecurityAddress", { required: true }],
+            ["PropertyValue", { required: true }],
+            ["LoanAmount", { required: true }],
+            ["CapitalRaising", { required: true }],
+            ["RepaymentType", { required: true }],
+            ["InterestRate"], ["FixedPeriod"], ["MonthlyPayment"], ["FeesAddedToLoan"],
+            ["NewLender"], ["Adviser"], ["SubmissionRoute"], ["PropertyInfo"],
+            ["DetailsOfRecommendedProduct"], ["LeadDate"], ["NextActionDate"], ["NextCaseAction"], ["Notes"],
+        ]),
     },
 
     "Buy-to-Let Purchase": {
         title: "Buy-to-Let Purchase Details",
-        fields: [
-            { key: "PropertyAddress", label: "Property Address", type: "Text", required: true },
-            { key: "PropertyType", label: "Property Type", type: "Choice", required: true, options: ["Detached", "Semi-Detached", "Terraced", "Flat", "Bungalow", "HMO"] },
-            { key: "PurchasePrice", label: "Purchase Price", type: "Currency", required: true },
-            { key: "DepositAmount", label: "Deposit Amount", type: "Currency", required: true },
-            { key: "LoanAmountRequired", label: "Loan Amount Required", type: "Currency", required: true },
-            { key: "ExpectedMonthlyRentalIncome", label: "Expected Monthly Rental Income", type: "Currency", required: true },
-            { key: "LandlordExperience", label: "Landlord Experience", type: "Choice", required: true, options: ["First-Time Landlord", "Experienced (<4 properties)", "Portfolio Landlord (4+)"] },
-            { key: "NumberOfExistingBTLProperties", label: "Number of Existing BTL Properties", type: "Number", required: true },
-            { key: "OwnershipStructure", label: "Ownership Structure", type: "Choice", required: true, options: ["Personal Name", "Limited Company/SPV"] },
-            { key: "SPVCompanyName", label: "SPV Company Name", type: "Text", required: false, conditionalOn: "OwnershipStructure", conditionalValue: "Limited Company/SPV" },
-            { key: "IntendedTenancyType", label: "Intended Tenancy Type", type: "Choice", required: true, options: ["AST", "HMO", "Holiday Let", "Student Let"] },
-            { key: "MortgageTermYears", label: "Mortgage Term (Years)", type: "Number", required: true },
-            { key: "RepaymentType", label: "Repayment Type", type: "Choice", required: true, options: ["Interest-Only", "Repayment"] },
-        ],
+        fields: pick(MORTGAGE_FIELD_POOL, [
+            ["SecurityAddress", { required: true }],
+            ["PropertyValue", { required: true }],
+            ["LoanAmount", { required: true }],
+            ["RepaymentType", { required: true }],
+            ["InterestRate"], ["FixedPeriod"], ["MonthlyPayment"], ["FeesAddedToLoan"],
+            ["Adviser"], ["SubmissionRoute"], ["PropertyInfo"], ["DetailsOfRecommendedProduct"],
+            ["LeadDate"], ["NextActionDate"], ["NextCaseAction"], ["Notes"],
+        ]),
     },
 
     "Buy-to-Let Remortgage": {
         title: "Buy-to-Let Remortgage Details",
-        fields: [
-            { key: "PropertyAddress", label: "Property Address", type: "Text", required: true },
-            { key: "CurrentLender", label: "Current Lender", type: "Text", required: true },
-            { key: "CurrentMortgageBalance", label: "Current Mortgage Balance", type: "Currency", required: true },
-            { key: "CurrentInterestRate", label: "Current Interest Rate (%)", type: "Number", required: true },
-            { key: "CurrentMonthlyRentalIncome", label: "Current Monthly Rental Income", type: "Currency", required: true },
-            { key: "EstimatedPropertyValue", label: "Estimated Property Value", type: "Currency", required: true },
-            { key: "OwnershipStructure", label: "Ownership Structure", type: "Choice", required: true, options: ["Personal Name", "Limited Company/SPV"] },
-            { key: "ReasonForRemortgage", label: "Reason for Remortgage", type: "Choice", required: true, options: ["Better Rate", "Capital Raising", "Debt Consolidation", "Other"] },
-            { key: "CapitalRaisingRequired", label: "Capital Raising Required", type: "YesNo", required: true },
-            { key: "CapitalRaisingAmount", label: "Capital Raising Amount", type: "Currency", required: false, conditionalOn: "CapitalRaisingRequired", conditionalValue: "Yes" },
-            { key: "NewLoanAmount", label: "New Loan Amount", type: "Currency", required: true },
-            { key: "NewMortgageTermYears", label: "New Mortgage Term (Years)", type: "Number", required: true },
-            { key: "RepaymentType", label: "Repayment Type", type: "Choice", required: true, options: ["Interest-Only", "Repayment"] },
-        ],
+        fields: pick(MORTGAGE_FIELD_POOL, [
+            ["SecurityAddress", { required: true }],
+            ["PropertyValue", { required: true }],
+            ["LoanAmount", { required: true }],
+            ["CapitalRaising", { required: true }],
+            ["RepaymentType", { required: true }],
+            ["InterestRate"], ["FixedPeriod"], ["MonthlyPayment"], ["FeesAddedToLoan"],
+            ["NewLender"], ["Adviser"], ["SubmissionRoute"], ["PropertyInfo"],
+            ["DetailsOfRecommendedProduct"], ["LeadDate"], ["NextActionDate"], ["NextCaseAction"], ["Notes"],
+        ]),
     },
 
     "Product Transfer": {
         title: "Product Transfer Details",
-        fields: [
-            { key: "CurrentLender", label: "Current Lender", type: "Text", required: true },
-            { key: "CurrentDealEndDate", label: "Current Deal End Date", type: "Date", required: true },
-            { key: "CurrentBalance", label: "Current Balance", type: "Currency", required: true },
-            { key: "CurrentRate", label: "Current Rate (%)", type: "Number", required: true },
-            { key: "NewProductSelected", label: "New Product Selected", type: "Text", required: true },
-            { key: "NewRate", label: "New Rate (%)", type: "Number", required: true },
-            { key: "TermRemainingYears", label: "Term Remaining (Years)", type: "Number", required: true },
-            { key: "FeesAddedToLoan", label: "Fees Added to Loan", type: "YesNo", required: true },
-            { key: "AdditionalBorrowingRequested", label: "Additional Borrowing Requested", type: "YesNo", required: true },
-        ],
+        fields: pick(MORTGAGE_FIELD_POOL, [
+            ["SecurityAddress", { required: true }],
+            ["MortgageAccountNumber", { required: true }],
+            ["LoanAmount", { required: true }],
+            ["NewLender", { required: true }],
+            ["RepaymentType", { required: true }],
+            ["InterestRate"], ["FixedPeriod"], ["MonthlyPayment"], ["FeesAddedToLoan"],
+            ["DetailsOfRecommendedProduct"], ["Adviser"], ["LeadDate"], ["NextActionDate"], ["Notes"],
+        ]),
     },
 
     "Shared Ownership": {
         title: "Shared Ownership Details",
-        fields: [
-            { key: "PropertyAddress", label: "Property Address", type: "Text", required: true },
-            { key: "HousingAssociationProvider", label: "Housing Association / Provider", type: "Text", required: true },
-            { key: "SharePercentage", label: "Share Being Purchased (%)", type: "Number", required: true },
-            { key: "FullMarketValue", label: "Full Market Value", type: "Currency", required: true },
-            { key: "SharePurchasePrice", label: "Share Purchase Price", type: "Currency", required: true },
-            { key: "MonthlyRentOnUnownedShare", label: "Monthly Rent on Unowned Share", type: "Currency", required: true },
-            { key: "ServiceCharge", label: "Service Charge", type: "Currency", required: false },
-            { key: "DepositAmount", label: "Deposit Amount", type: "Currency", required: true },
-            { key: "LoanAmountRequired", label: "Loan Amount Required", type: "Currency", required: true },
-            { key: "StaircasingIntended", label: "Staircasing Intended", type: "YesNo", required: false },
-            { key: "MortgageTermYears", label: "Mortgage Term (Years)", type: "Number", required: true },
-            { key: "RepaymentType", label: "Repayment Type", type: "Choice", required: true, options: ["Repayment", "Interest-Only", "Part & Part"] },
-        ],
+        fields: pick(MORTGAGE_FIELD_POOL, [
+            ["SecurityAddress", { required: true }],
+            ["PropertyValue", { required: true }],
+            ["LoanAmount", { required: true }],
+            ["RepaymentType", { required: true }],
+            ["InterestRate"], ["FixedPeriod"], ["MonthlyPayment"], ["FeesAddedToLoan"],
+            ["Adviser"], ["SubmissionRoute"], ["PropertyInfo"], ["DetailsOfRecommendedProduct"],
+            ["LeadDate"], ["NextActionDate"], ["NextCaseAction"], ["Notes"],
+        ]),
     },
 
     "Bridging": {
         title: "Bridging Loan Details",
-        fields: [
-            { key: "SecurityPropertyAddress", label: "Security Property Address", type: "Text", required: true },
-            { key: "PurposeOfLoan", label: "Purpose of Loan", type: "Choice", required: true, options: ["Purchase Before Sale", "Auction Purchase", "Renovation/Refurb", "Development Exit", "Other"] },
-            { key: "LoanAmountRequired", label: "Loan Amount Required", type: "Currency", required: true },
-            { key: "GrossOrNetLoan", label: "Gross or Net Loan", type: "Choice", required: true, options: ["Gross", "Net"] },
-            { key: "PropertyValue", label: "Property Value", type: "Currency", required: true },
-            { key: "ChargePosition", label: "Charge Position", type: "Choice", required: true, options: ["First Charge", "Second Charge"] },
-            { key: "ExistingMortgageBalance", label: "Existing Mortgage Balance", type: "Currency", required: false },
-            { key: "ExitStrategy", label: "Exit Strategy", type: "Choice", required: true, options: ["Sale of Property", "Remortgage", "Sale of Other Asset"] },
-            { key: "LoanTermMonths", label: "Loan Term Required (Months)", type: "Number", required: true },
-            { key: "EstimatedWorksCost", label: "Estimated Works Cost", type: "Currency", required: false, conditionalOn: "PurposeOfLoan", conditionalValue: "Renovation/Refurb" },
-        ],
+        fields: pick(MORTGAGE_FIELD_POOL, [
+            ["SecurityAddress", { required: true }],
+            ["PropertyValue", { required: true }],
+            ["LoanAmount", { required: true }],
+            ["RepaymentType"],
+            ["InterestRate"], ["FixedPeriod"], ["MonthlyPayment"], ["FeesAddedToLoan"],
+            ["PropertyInfo"], ["DetailsOfRecommendedProduct"], ["Adviser"],
+            ["LeadDate"], ["NextActionDate"], ["NextCaseAction"], ["Notes"],
+        ]),
     },
 
     "Second Charge": {
         title: "Second Charge Details",
-        fields: [
-            { key: "PropertyAddress", label: "Property Address", type: "Text", required: true },
-            { key: "ExistingFirstChargeLender", label: "Existing First Charge Lender", type: "Text", required: true },
-            { key: "ExistingFirstChargeBalance", label: "Existing First Charge Balance", type: "Currency", required: true },
-            { key: "PropertyValue", label: "Property Value", type: "Currency", required: true },
-            { key: "LoanAmountRequired", label: "Loan Amount Required", type: "Currency", required: true },
-            { key: "PurposeOfLoan", label: "Purpose of Loan", type: "Choice", required: true, options: ["Debt Consolidation", "Home Improvement", "Business Purposes", "Other"] },
-            { key: "LoanTermYears", label: "Loan Term (Years)", type: "Number", required: true },
-            { key: "RepaymentType", label: "Repayment Type", type: "Choice", required: true, options: ["Repayment", "Interest-Only"] },
-            { key: "FirstChargeLenderConsentObtained", label: "First Charge Lender Consent Obtained", type: "YesNo", required: true },
-        ],
+        fields: pick(MORTGAGE_FIELD_POOL, [
+            ["SecurityAddress", { required: true }],
+            ["PropertyValue", { required: true }],
+            ["LoanAmount", { required: true }],
+            ["RepaymentType", { required: true }],
+            ["InterestRate"], ["MonthlyPayment"], ["FeesAddedToLoan"],
+            ["DetailsOfRecommendedProduct"], ["Adviser"], ["LeadDate"], ["NextActionDate"], ["Notes"],
+        ]),
     },
 
     "Right to Buy": {
         title: "Right to Buy Details",
-        fields: [
-            { key: "CouncilHousingAssociationName", label: "Council / Housing Association Name", type: "Text", required: true },
-            { key: "PropertyAddress", label: "Property Address", type: "Text", required: true },
-            { key: "LengthOfTenancyYears", label: "Length of Tenancy (Years)", type: "Number", required: true },
-            { key: "MarketValue", label: "Market Value", type: "Currency", required: true },
-            { key: "RightToBuyDiscountAmount", label: "Right to Buy Discount Amount", type: "Currency", required: true },
-            { key: "DiscountedPurchasePrice", label: "Discounted Purchase Price", type: "Currency", required: true },
-            { key: "LoanAmountRequired", label: "Loan Amount Required", type: "Currency", required: true },
-            { key: "DiscountClawbackPeriodApplies", label: "Discount Clawback Period Applies", type: "YesNo", required: true },
-            { key: "MortgageTermYears", label: "Mortgage Term (Years)", type: "Number", required: true },
-            { key: "RepaymentType", label: "Repayment Type", type: "Choice", required: true, options: ["Repayment", "Interest-Only"] },
-        ],
+        fields: pick(MORTGAGE_FIELD_POOL, [
+            ["SecurityAddress", { required: true }],
+            ["PropertyValue", { required: true }],
+            ["LoanAmount", { required: true }],
+            ["RepaymentType", { required: true }],
+            ["InterestRate"], ["FixedPeriod"], ["MonthlyPayment"], ["FeesAddedToLoan"],
+            ["DetailsOfRecommendedProduct"], ["Adviser"], ["LeadDate"], ["NextActionDate"], ["Notes"],
+        ]),
     },
 
     "Protection Only": {
         title: "Protection Enquiry Details",
-        fields: [
-            { key: "ReasonForReview", label: "Reason for Review", type: "Choice", required: true, options: ["New Mortgage", "Family Protection", "Business Protection", "Existing Policy Review"] },
-            { key: "ExistingPoliciesInPlace", label: "Existing Policies in Place", type: "YesNo", required: true },
-            { key: "ExistingProviders", label: "Existing Provider(s)", type: "Text", required: false, conditionalOn: "ExistingPoliciesInPlace", conditionalValue: "Yes" },
-            { key: "CoverTypesOfInterest", label: "Cover Types of Interest", type: "MultiChoice", required: true, options: ["Life Insurance", "Critical Illness", "Income Protection", "Family Income Benefit"] },
-            { key: "PreferredMonthlyBudget", label: "Preferred Monthly Budget", type: "Currency", required: false },
-        ],
+        fields: pick(P4L_FIELD_POOL, [
+            ["PolicyType", { required: true }],
+            ["SumAssured", { required: true }],
+            ["Term_Years"], ["PolicyProvider"], ["OnRiskDate"],
+            ["NextActionDate"], ["NextActionDescription"], ["Comments"],
+        ]),
     },
 
     "Life Insurance": {
         title: "Life Insurance Details",
-        fields: [
-            { key: "PolicyType", label: "Policy Type", type: "Choice", required: true, options: ["Level Term", "Decreasing Term", "Whole of Life", "Family Income Benefit"] },
-            { key: "SumAssured", label: "Sum Assured", type: "Currency", required: true },
-            { key: "TermRequiredYears", label: "Term Required (Years)", type: "Number", required: false },
-            { key: "CoverBasis", label: "Cover Basis", type: "Choice", required: true, options: ["Single Life", "Joint Life First Death", "Joint Life Second Death"] },
-            { key: "WrittenInTrust", label: "Written in Trust", type: "YesNo", required: true },
-            { key: "SmokerStatus", label: "Smoker Status", type: "Choice", required: true, options: ["Non-Smoker", "Smoker", "Ex-Smoker"] },
-            { key: "HealthDisclosures", label: "Health Disclosures", type: "MultilineText", required: false },
-            { key: "LinkedToMortgageCase", label: "Linked to a Mortgage Case", type: "YesNo", required: false },
-            { key: "LinkedCaseReference", label: "Linked Case Reference", type: "Text", required: false, conditionalOn: "LinkedToMortgageCase", conditionalValue: "Yes" },
-            { key: "Beneficiaries", label: "Beneficiaries", type: "Text", required: false },
-        ],
+        fields: pick(P4L_FIELD_POOL, [
+            ["PolicyType", { required: true }],
+            ["SumAssured", { required: true }],
+            ["Term_Years"], ["PolicyProvider"], ["OnRiskDate"],
+            ["CommissionAmount"], ["CommissionType"], ["CommissionPeriod"], ["PolicyPremium"],
+            ["NextActionDate"], ["NextActionDescription"], ["Comments"],
+        ]),
     },
 
     "Critical Illness Cover": {
         title: "Critical Illness Cover Details",
-        fields: [
-            { key: "PolicyType", label: "Policy Type", type: "Choice", required: true, options: ["Standalone CIC", "Combined Life + CIC"] },
-            { key: "SumAssured", label: "Sum Assured", type: "Currency", required: true },
-            { key: "TermRequiredYears", label: "Term Required (Years)", type: "Number", required: true },
-            { key: "CoverLevel", label: "Cover Level", type: "Choice", required: true, options: ["Standard", "Comprehensive", "Enhanced"] },
-            { key: "Occupation", label: "Occupation", type: "Text", required: true },
-            { key: "SmokerStatus", label: "Smoker Status", type: "Choice", required: true, options: ["Non-Smoker", "Smoker", "Ex-Smoker"] },
-            { key: "HealthDisclosures", label: "Health Disclosures", type: "MultilineText", required: false },
-            { key: "FamilyMedicalHistory", label: "Family Medical History", type: "MultilineText", required: false },
-            { key: "LinkedToMortgageCase", label: "Linked to a Mortgage Case", type: "YesNo", required: false },
-        ],
+        fields: pick(P4L_FIELD_POOL, [
+            ["PolicyType", { required: true }],
+            ["SumAssured", { required: true }],
+            ["Term_Years", { required: true }],
+            ["PolicyProvider"], ["OnRiskDate"],
+            ["CommissionAmount"], ["CommissionType"], ["CommissionPeriod"], ["PolicyPremium"],
+            ["NextActionDate"], ["NextActionDescription"], ["Comments"],
+        ]),
     },
 
     "Income Protection": {
         title: "Income Protection Details",
-        fields: [
-            { key: "MonthlyBenefitRequired", label: "Monthly Benefit Required", type: "Currency", required: true },
-            { key: "DeferredPeriod", label: "Deferred Period", type: "Choice", required: true, options: ["4 Weeks", "8 Weeks", "13 Weeks", "26 Weeks", "52 Weeks"] },
-            { key: "BenefitPaymentTerm", label: "Benefit Payment Term", type: "Choice", required: true, options: ["To Retirement Age", "2 Year Limited", "5 Year Limited"] },
-            { key: "OccupationClass", label: "Occupation Class", type: "Choice", required: true, options: ["Class 1", "Class 2", "Class 3", "Class 4"] },
-            { key: "EmploymentStatus", label: "Employment Status", type: "Choice", required: true, options: ["Employed", "Self-Employed"] },
-            { key: "ExistingSickPayProvision", label: "Existing Sick Pay Provision", type: "Text", required: false },
-            { key: "SmokerStatus", label: "Smoker Status", type: "Choice", required: true, options: ["Non-Smoker", "Smoker", "Ex-Smoker"] },
-            { key: "HealthDisclosures", label: "Health Disclosures", type: "MultilineText", required: false },
-        ],
+        fields: pick(P4L_FIELD_POOL, [
+            ["SumAssured", { required: true }],
+            ["PolicyType", { required: true }],
+            ["Term_Years"], ["PolicyProvider"], ["OnRiskDate"],
+            ["CommissionAmount"], ["CommissionType"], ["CommissionPeriod"], ["PolicyPremium"],
+            ["NextActionDate"], ["NextActionDescription"], ["Comments"],
+        ]),
     },
 
     "General Insurance": {
         title: "General Insurance Details",
-        fields: [
-            { key: "InsuranceType", label: "Insurance Type", type: "Choice", required: true, options: ["Buildings", "Contents", "Buildings & Contents", "Landlord Insurance"] },
-            { key: "PropertyAddress", label: "Property Address", type: "Text", required: true },
-            { key: "BuildingsSumInsured", label: "Buildings Sum Insured / Rebuild Value", type: "Currency", required: false },
-            { key: "ContentsSumInsured", label: "Contents Sum Insured", type: "Currency", required: false },
-            { key: "PropertyType", label: "Property Type", type: "Choice", required: true, options: ["Detached", "Semi-Detached", "Terraced", "Flat", "Bungalow"] },
-            { key: "NumberOfBedrooms", label: "Number of Bedrooms", type: "Number", required: true },
-            { key: "PropertyOwnershipStatus", label: "Property Ownership Status", type: "Choice", required: true, options: ["Owner Occupied", "Let Property", "Unoccupied"] },
-            { key: "SecurityFeatures", label: "Security Features", type: "MultiChoice", required: true, options: ["Alarm", "CCTV", "Multi-Point Locks", "Neighbourhood Watch"] },
-            { key: "ClaimsInLast5Years", label: "Claims in Last 5 Years", type: "YesNo", required: true },
-            { key: "ClaimsDetails", label: "Claims Details", type: "MultilineText", required: false, conditionalOn: "ClaimsInLast5Years", conditionalValue: "Yes" },
-            { key: "CurrentInsurer", label: "Current Insurer", type: "Text", required: false },
-            { key: "RenewalDate", label: "Renewal Date", type: "Date", required: false },
-        ],
+        fields: pick(GI_FIELD_POOL, [
+            ["PolicyType", { required: true }],
+            ["SecurityAddress", { required: true }],
+            ["Insurer"], ["PolicyNumber"], ["PolicyRefTheSource"], ["SourcingSystem"],
+            ["OnRiskDate"], ["CurrentPremiumAnnual"], ["CurrentPremiumMonthly"], ["PaymentMethod"],
+            ["Status"], ["SLStatus"], ["RenewalPremiumAnnual"], ["BrokersCommission"], ["Comments"],
+        ]),
     },
 };
 

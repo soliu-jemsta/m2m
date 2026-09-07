@@ -71,6 +71,18 @@
       "path": "src/codebase/general/libraries/workflowengine.js",
       "globalName": "workflowengine"
     },
+    "taskTemplate": {
+      "path": "src/codebase/general/libraries/taskTemplate.js",
+      "globalName": "taskTemplate"
+    },
+    "caseTaskService": {
+      "path": "src/codebase/general/libraries/caseTaskService.js",
+      "globalName": "caseTaskService"
+    },
+    "caseStageUI": {
+      "path": "src/codebase/general/libraries/caseStageUI.js",
+      "globalName": "caseStageUI"
+    },
     "main": {
       "path": "src/codebase/general/global/main.js",
       "globalName": "main",

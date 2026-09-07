@@ -28,8 +28,7 @@ MainApplication.NewClientComponent.ApplicationDetails = function () {
 function whenNewClientLoaded() {
 	globalDefinitions.callLoader();
 	$spcontext.assignAttributes();
-  MainApplication.CurrentPageSubmitFunction =
-    MainApplication.NewClientComponent.confirmSubmit;
+  MainApplication.CurrentPageSubmitFunction = MainApplication.NewClientComponent.confirmSubmit;
   AppRequest = new MainApplication.NewClientComponent.ApplicationDetails();
 //   globalDefinitions.extendStages();
 

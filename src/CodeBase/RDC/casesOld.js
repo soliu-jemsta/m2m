@@ -40,9 +40,9 @@ var CATEGORY_TABLE_MAP = {
 // manualTable's settings skips that DOM scan entirely, so each category only
 // ever renders its own columns.
 var CATEGORY_CONTROLS = {
-    MORTGAGE: ["CaseID", "Client", "Adviser", "ApplicationType", "Status", "Modified"],
-    P4L: ["CaseID", "Client", "Adviser", "ApplicationType", "Status", "Modified"],
-    GI: ["CaseID", "Client", "Adviser", "ApplicationType", "Status", "Modified"]
+    MORTGAGE: ["WorkflowRequestID", "Client", "Adviser", "MortgageType", "LoanAmountRequired", "Approval_Status", "Modified"],
+    P4L: ["WorkflowRequestID", "Client", "Adviser", "P4LType", "SumAssured", "Approval_Status", "Modified"],
+    GI: ["WorkflowRequestID", "Client", "Adviser", "GIType", "InsuranceType", "Approval_Status", "Modified"]
 };
 
 MainApplication.CasesComponent.ApplicationDetails = function () {
@@ -87,30 +87,30 @@ whenCasesLoaded = function () {
 		"Adviser": function (valueToEva) {
 			return valueToEva.Adviser.value;
 		},
-        // "LoanAmountRequired": function (valueToEva) {
-        //     return valueToEva.LoanAmountRequired
-        //         ? "£" + Number(valueToEva.LoanAmountRequired).toLocaleString()
-        //         : "-";
-        // },
-        // // TODO: confirm "SumAssured" / "InsuranceType" are the real internal
-        // // column names on CASESLIST — these are placeholders based on the
-        // // field keys used for those case types in dynamicrenderer.js.
-        // "SumAssured": function (valueToEva) {
-        //     return valueToEva.SumAssured
-        //         ? "£" + Number(valueToEva.SumAssured).toLocaleString()
-        //         : "-";
-        // },
-        // "InsuranceType": function (valueToEva) {
-        //     return valueToEva.InsuranceType || "-";
-        // },
+        "LoanAmountRequired": function (valueToEva) {
+            return valueToEva.LoanAmountRequired
+                ? "£" + Number(valueToEva.LoanAmountRequired).toLocaleString()
+                : "-";
+        },
+        // TODO: confirm "SumAssured" / "InsuranceType" are the real internal
+        // column names on CASESLIST — these are placeholders based on the
+        // field keys used for those case types in dynamicrenderer.js.
+        "SumAssured": function (valueToEva) {
+            return valueToEva.SumAssured
+                ? "£" + Number(valueToEva.SumAssured).toLocaleString()
+                : "-";
+        },
+        "InsuranceType": function (valueToEva) {
+            return valueToEva.InsuranceType || "-";
+        },
         "Modified": function (valueToEva) {
             var viewStr = `
-                <a href="#/viewrequest?itemId=${valueToEva.CaseID}" class="btn btn-sm btn-primary btn-icon">
+                <a href="#/viewrequest?itemId=${valueToEva.ID}" class="btn btn-sm btn-primary btn-icon">
                     <i class="fa-solid fa-eye" style="font-size:11px"></i>
                 </a>`;
 
             var editStr = `
-                <a href="#/?itemId=${valueToEva.CaseID}" class="btn btn-sm btn-primary btn-icon">
+                <a href="#/?itemId=${valueToEva.ID}" class="btn btn-sm btn-primary btn-icon">
                     <i class="fa-solid fa-pen" style="font-size:11px"></i>
                 </a>`;
 
@@ -121,7 +121,6 @@ whenCasesLoaded = function () {
             // }
 
 			return `<button class="btn btn-secondary btn-sm">View</button>`;
-            // return `<div>${viewStr}</div>`;
         }
     };
 
@@ -196,8 +195,11 @@ MainApplication.CasesComponent.retrieveRequest = function () {
     var extraProperties = {
         merge: true,
         data: [
-            "ID", "Title", "Adviser", "Client", "Modified", "Status", "ApplicationType",
-            "CaseID"
+            "ID", "Title", "Lender", "Adviser", "Client", "Modified", "Approval_Status", "ApplicationType",
+            "LoanAmountRequired", "SumAssured", "InsuranceType",
+            // Granular type per category — ApplicationType only holds the
+            // category code (MORTGAGE/P4L/GI), the specific type lives here.
+            "MortgageType", "P4LType", "GIType"
         ]
     };
 
