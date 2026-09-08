@@ -5,9 +5,6 @@ import { Link } from "react-router-dom";
 // import IdeaFormSkeleton from "../../../../Global/IdeaFormSkeleton";
 
 require("cases");
-require('taskTemplate');
-require('caseTaskService');
-require('caseStageUI');
 
 interface ColumnDef {
   label: string;

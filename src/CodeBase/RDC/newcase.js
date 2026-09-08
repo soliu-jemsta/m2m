@@ -86,7 +86,7 @@ MainApplication.NewCaseComponent.saveDataToList = function () {
 
     globalDefinitions.callLoader();
     globalDefinitions.onActionCompleted();
-
+	console.log("FormData: ", formData);
     // No workflow engine routing — go straight to list write
     MainApplication.NewCaseComponent.proceedToList(formData);
   } else {
@@ -152,13 +152,7 @@ MainApplication.NewCaseComponent.proceedToList = function (formData) {
 
       $spcontext.updateItems([updateObj], listName, function () {
         // Create initial tasks for "Lead" stage
-        var clientName =
-          (MainApplication.clientDetails &&
-            peopleEmail &&
-            MainApplication.clientDetails[peopleEmail.Client] &&
-            MainApplication.clientDetails[peopleEmail.Client].Title) ||
-          formData.Title ||
-          "";
+        var clientName = formData.Title;
 
         // peopleEmail is in outer scope from saveDataToList — if not, resolve again
         var adviserLogin =

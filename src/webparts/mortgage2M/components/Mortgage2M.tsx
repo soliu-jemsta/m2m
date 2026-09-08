@@ -17,6 +17,9 @@ import { HelmetProvider } from "react-helmet-async";
 
 
 require('main');
+require('taskTemplate');
+require('caseTaskService');
+require('caseStageUI');
 declare global {
     interface Window {
         globalProp: any;
