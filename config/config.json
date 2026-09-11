@@ -228,7 +228,16 @@
         "speedpoint_core",
         "main"
       ]
-    }
+    },
+    "casedetail": {
+    "path": "src/codebase/rdc/casedetail.js",
+    "globalName": "casedetail",
+    "globalDependencies": [
+      "global",
+      "speedpoint_core",
+      "main"
+    ]
+  }
     
   },
   "localizedResources": {

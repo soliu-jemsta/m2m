@@ -105,14 +105,14 @@ whenCasesLoaded = function () {
         // },
         "Modified": function (valueToEva) {
             var viewStr = `
-                <a href="#/viewrequest?itemId=${valueToEva.CaseID}" class="btn btn-sm btn-primary btn-icon">
+                <a href="#/case?itemId=${valueToEva.CaseID}" class="btn btn-sm btn-primary btn-icon">
                     <i class="fa-solid fa-eye" style="font-size:11px"></i>
                 </a>`;
 
-            var editStr = `
-                <a href="#/?itemId=${valueToEva.CaseID}" class="btn btn-sm btn-primary btn-icon">
-                    <i class="fa-solid fa-pen" style="font-size:11px"></i>
-                </a>`;
+            // var editStr = `
+            //     <a href="#/?itemId=${valueToEva.CaseID}" class="btn btn-sm btn-primary btn-icon">
+            //         <i class="fa-solid fa-pen" style="font-size:11px"></i>
+            //     </a>`;
 
             // if (valueToEva.Status === "Save"){
             //     return `<div>${editStr} ${viewStr}</div`
@@ -120,8 +120,8 @@ whenCasesLoaded = function () {
             //     return viewStr;
             // }
 
-			return `<button class="btn btn-secondary btn-sm">View</button>`;
-            // return `<div>${viewStr}</div>`;
+			// return `<button class="btn btn-secondary btn-sm">View</button>`;
+            return `<div>${viewStr}</div>`;
         }
     };
 

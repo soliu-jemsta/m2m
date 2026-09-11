@@ -11,6 +11,7 @@ import NewCase from './pages/NewCase';
 import CaseApproval from './pages/CaseApproval';
 import Report from './pages/Reort';
 import Settings from './pages/Settings';
+import CaseDetail from './pages/CaseDetail';
 
 import { HelmetProvider } from "react-helmet-async";
 
@@ -31,6 +32,7 @@ declare global {
         loadCaseApprovalComponent: () => void;
         loadReportComponent: () => void;
         loadSettingsComponent: () => void;
+        loadCaseDetailComponent: () => void;
     }
 }
 export default class Mortgage2M extends React.Component<IMortgage2MProps> {
@@ -51,6 +53,7 @@ export default class Mortgage2M extends React.Component<IMortgage2MProps> {
                             <Route path='case-approval' element={<CaseApproval />} />
                             <Route path='report' element={<Report />} />
                             <Route path='settings' element={<Settings />} />
+                            <Route path='case' element={<CaseDetail />} />
                             {/* <Route path="mysubmissions" element={<Dashboard />} />
                             <Route path="approverequest" element={<ApproveRequest />} />
                             <Route path="viewrequest" element={<ViewRequest />} />

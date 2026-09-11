@@ -245,6 +245,24 @@ var CaseTaskService = (function () {
     }, callback);
   }
 
+  /**
+   * Load ALL tasks for a case (Open + Done) — used by the Kanban board.
+   */
+  function getAllTasksForCase(caseId, callback) {
+    var caml =
+      "<View><Query><Where>" +
+      "<Eq><FieldRef Name='CaseID'/><Value Type='Text'>" + caseId + "</Value></Eq>" +
+      "</Where>" +
+      "<OrderBy><FieldRef Name='DueDate' Ascending='TRUE'/></OrderBy>" +
+      "</Query></View>";
+
+    $spcontext.getListToItems(getTasksListName(), caml, function (items) {
+      callback(null, items || []);
+    }, function (err) {
+      callback(err, []);
+    });
+  }
+
   return {
     createTasksForStage: createTasksForStage,
     changeStage: changeStage,
@@ -252,7 +270,8 @@ var CaseTaskService = (function () {
     getOpenTasksForCase: getOpenTasksForCase,
     onNewCaseCreated: onNewCaseCreated,
     getTasksListName: getTasksListName,
-    getCasesListName: getCasesListName
+    getCasesListName: getCasesListName,
+    getAllTasksForCase: getAllTasksForCase,
   };
 })();
 
