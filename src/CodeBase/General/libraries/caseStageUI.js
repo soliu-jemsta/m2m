@@ -67,15 +67,27 @@ var CaseStageUI = (function () {
       function (err, result) {
         globalDefinitions.closeLoader();
         if (err) {
-          globalDefinitions.HandlerError("Could not update stage: " + err, true);
+          var msg = (window.CaseTaskService && CaseTaskService.formatError)
+            ? CaseTaskService.formatError(err)
+            : (typeof err === "string" ? err : (err && err.message) || String(err));
+          globalDefinitions.HandlerError("Could not update stage: " + msg, false);
           return;
         }
 
         root.setAttribute("data-current-stage", newStage);
-        if (window.showToast) {
-          showToast("Stage updated to " + newStage + " — tasks created", "success");
+        $("#caseHeaderStage").text(newStage);
+
+        var successMsg = "Stage updated to " + newStage;
+        if (result && result.taskWarning) {
+          successMsg += " (tasks warning: " + result.taskWarning + ")";
         } else {
-          globalDefinitions.HandlerSuccess("Stage updated to " + newStage);
+          successMsg += " — tasks created";
+        }
+
+        if (window.showToast) {
+          showToast(successMsg, "success");
+        } else {
+          globalDefinitions.HandlerSuccess(successMsg);
         }
 
         // Refresh open tasks panel if present
