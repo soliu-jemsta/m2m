@@ -61,13 +61,18 @@ GlobalDefinitionsManager.prototype.scrollTop = function(){
 
 GlobalDefinitionsManager.prototype.HandlerError = function (errormsg, inpage) {
   var optbool = typeof inpage === "undefined" ? false : inpage;
+  var message = errormsg;
 
   if (optbool) {
-    MainApplication.notyf.error($spcontext.errors[0].msg)
+    // Only read SP errors when they exist; otherwise fall back to errormsg
+    if ($spcontext.errors && $spcontext.errors.length > 0 && $spcontext.errors[0] && $spcontext.errors[0].msg) {
+      message = $spcontext.errors[0].msg;
+    } else if (!message) {
+      message = "An unexpected error occurred.";
+    }
   }
-  else{
-    MainApplication.notyf.error(errormsg);
-  }
+
+  MainApplication.notyf.error(message || "An unexpected error occurred.");
 };
 
 GlobalDefinitionsManager.prototype.latencyHandler = function(){
