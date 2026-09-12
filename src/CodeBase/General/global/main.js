@@ -87,6 +87,7 @@ function MainStartPoint() {
   this.NewClientComponent = {};
   this.ReportComponent = {};
   this.SettingsComponent = {};
+  this.CaseDetailComponent = {};
 
   this.CurrentPageSubmitFunction = null;
   this.auditType = [];

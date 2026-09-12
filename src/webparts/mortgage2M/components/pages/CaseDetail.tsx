@@ -2,9 +2,9 @@ import * as React from "react";
 import ClientButton from "../../../../Global/ClientButton";
 
 require("casedetail");
-require("caseTaskService");
-require("caseStageUI");
-require("taskTemplate");
+// require("caseTaskService");
+// require("caseStageUI");
+// require("taskTemplate");
 
 export default class CaseDetail extends React.Component<{}, {}> {
   public render(): React.ReactElement {
