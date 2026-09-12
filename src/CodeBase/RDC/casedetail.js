@@ -91,6 +91,18 @@ function whenCaseDetailLoaded() {
 					}
 					if (typeof CaseStageUI.renderKanban === "function") {
 						CaseStageUI.renderKanban(caseItem.CaseID || caseId, "caseKanbanBoard", stage);
+					} else {
+						console.error("[CaseDetail] CaseStageUI.renderKanban is missing — update caseStageUI.js export");
+						var kb = document.getElementById("caseKanbanBoard");
+						if (kb) {
+							kb.innerHTML = '<div style="padding:12px;color:#dc2626">Kanban failed to load (renderKanban not exported). Update caseStageUI.js.</div>';
+						}
+					}
+				} else {
+					console.error("[CaseDetail] CaseStageUI not loaded");
+					var kb2 = document.getElementById("caseKanbanBoard");
+					if (kb2) {
+						kb2.innerHTML = '<div style="padding:12px;color:#dc2626">CaseStageUI not loaded. Check require/config externals.</div>';
 					}
 				}
 

@@ -196,13 +196,29 @@ var CaseStageUI = (function () {
   function renderKanban(caseId, containerId, currentStage) {
     containerId = containerId || "caseKanbanBoard";
     var container = document.getElementById(containerId);
-    if (!container) return;
+    if (!container) {
+      console.warn("[Kanban] container not found:", containerId);
+      return;
+    }
 
-    _lastKanban = { caseId: caseId, containerId: containerId };
+    _lastKanban = { caseId: caseId, containerId: containerId, currentStage: currentStage };
+
+    if (!window.CaseTaskService || typeof CaseTaskService.getAllTasksForCase !== "function") {
+      container.innerHTML = '<div style="padding:12px;color:#dc2626">CaseTaskService is not loaded — cannot render Kanban.</div>';
+      return;
+    }
+
+    var stages = window.CASE_STAGES || [];
+    if (!stages.length) {
+      container.innerHTML = '<div style="padding:12px;color:#dc2626">CASE_STAGES is empty — check taskTemplate.js is loaded.</div>';
+      return;
+    }
+
+    container.innerHTML = '<div style="padding:12px;color:#94a3b8;font-size:13px">Loading tasks…</div>';
 
     CaseTaskService.getAllTasksForCase(caseId, function (err, tasks) {
       if (err) {
-        container.innerHTML = '<div style="padding:12px;color:var(--red)">Could not load tasks: ' + err + '</div>';
+        container.innerHTML = '<div style="padding:12px;color:#dc2626">Could not load tasks: ' + err + '</div>';
         return;
       }
 
@@ -212,7 +228,6 @@ var CaseStageUI = (function () {
         (byStage[s] = byStage[s] || []).push(t);
       });
 
-      var stages = window.CASE_STAGES || [];
       container.innerHTML = stages.map(function (stage) {
         var stageTasks = byStage[stage] || [];
         var openCount = stageTasks.filter(function (t) { return t.TaskStatus !== "Done"; }).length;
@@ -220,18 +235,85 @@ var CaseStageUI = (function () {
 
         var cardsHtml = stageTasks.length
           ? stageTasks.map(taskCardHtml).join("")
-          : '<div class="kb-empty">No tasks at this stage</div>';
+          : '<div class="kb-empty">No tasks — drop here</div>';
 
         return (
-          '<div class="kb-col' + (isCurrent ? " current" : "") + '">' +
+          '<div class="kb-col' + (isCurrent ? " current" : "") + '" data-stage="' + stage + '">' +
             '<div class="kb-col-hdr">' +
               '<span>' + stage + '</span>' +
               '<span class="kb-count">' + openCount + '/' + stageTasks.length + '</span>' +
             '</div>' +
-            '<div class="kb-col-body">' + cardsHtml + '</div>' +
+            '<div class="kb-col-body" data-stage="' + stage + '">' + cardsHtml + '</div>' +
           '</div>'
         );
       }).join("");
+
+      bindKanbanDragDrop(container, caseId);
+    });
+  }
+
+  function bindKanbanDragDrop(container, caseId) {
+    var cards = container.querySelectorAll(".kb-card[data-task-id]");
+    cards.forEach(function (card) {
+      card.setAttribute("draggable", "true");
+      card.addEventListener("dragstart", function (e) {
+        e.dataTransfer.setData("text/plain", card.getAttribute("data-task-id"));
+        e.dataTransfer.effectAllowed = "move";
+        card.classList.add("kb-dragging");
+      });
+      card.addEventListener("dragend", function () {
+        card.classList.remove("kb-dragging");
+        container.querySelectorAll(".kb-col-body").forEach(function (b) {
+          b.classList.remove("kb-drop-target");
+        });
+      });
+    });
+
+    var bodies = container.querySelectorAll(".kb-col-body");
+    bodies.forEach(function (body) {
+      body.addEventListener("dragover", function (e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        body.classList.add("kb-drop-target");
+      });
+      body.addEventListener("dragleave", function () {
+        body.classList.remove("kb-drop-target");
+      });
+      body.addEventListener("drop", function (e) {
+        e.preventDefault();
+        body.classList.remove("kb-drop-target");
+        var taskId = e.dataTransfer.getData("text/plain");
+        var newStage = body.getAttribute("data-stage");
+        if (!taskId || !newStage) return;
+
+        if (!CaseTaskService.moveTaskToStage) {
+          // fallback: update Stage field directly
+          $spcontext.updateItems(
+            [{ ID: parseInt(taskId, 10), Stage: newStage }],
+            CaseTaskService.getTasksListName(),
+            function () {
+              if (window.CaseStageUI) {
+                CaseStageUI.renderKanban(caseId, container.id, _lastKanban && _lastKanban.currentStage);
+              }
+              if (MainApplication.notyf) MainApplication.notyf.success("Moved to " + newStage);
+            },
+            function (sender, args) {
+              var msg = (args && args.get_message && args.get_message()) || "Move failed";
+              globalDefinitions.HandlerError(msg, false);
+            }
+          );
+          return;
+        }
+
+        CaseTaskService.moveTaskToStage(parseInt(taskId, 10), newStage, function (err) {
+          if (err) {
+            globalDefinitions.HandlerError("Could not move task: " + err, false);
+            return;
+          }
+          if (MainApplication.notyf) MainApplication.notyf.success("Moved to " + newStage);
+          renderKanban(caseId, container.id, _lastKanban && _lastKanban.currentStage);
+        });
+      });
     });
   }
   
@@ -256,7 +338,8 @@ var CaseStageUI = (function () {
     advance: advance,
     advanceWithData: advanceWithData,
     reloadTasks: reloadTasks,
-    completeTask: completeTask
+    completeTask: completeTask,
+    renderKanban: renderKanban
   };
 })();
 

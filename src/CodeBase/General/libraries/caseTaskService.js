@@ -374,12 +374,29 @@ var CaseTaskService = (function () {
     );
   }
 
+
+  function moveTaskToStage(taskId, newStage, callback) {
+    callback = callback || function () {};
+    $spcontext.updateItems(
+      [{ ID: taskId, Stage: newStage }],
+      getTasksListName(),
+      function () { callback(null); },
+      function (sender, args, meta) {
+        var msg = (typeof spFailToMessage === "function")
+          ? spFailToMessage(sender, args, meta)
+          : ((args && args.get_message && args.get_message()) || "Move failed");
+        callback(msg);
+      }
+    );
+  }
+
   return {
     createTasksForStage: createTasksForStage,
     changeStage: changeStage,
     completeTask: completeTask,
     getOpenTasksForCase: getOpenTasksForCase,
     getAllTasksForCase: getAllTasksForCase,
+    moveTaskToStage: moveTaskToStage,
     onNewCaseCreated: onNewCaseCreated,
     getTasksListName: getTasksListName,
     getCasesListName: getCasesListName,
