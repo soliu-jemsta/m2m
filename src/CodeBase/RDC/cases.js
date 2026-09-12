@@ -10,10 +10,10 @@ loadCasesComponent = function () {
 
 var AppRequest;
 
-// Update to match your actual Approval_Status choice values
+// Update to match your actual Status choice values
 var CASES_STATUS = {
     closedStatuses: ["Completed", "Declined"],
-    pendingApprovalStatus: "Pending"
+    pendingApprovalStatus: "Open"
 };
 
 // The three category tabs. These values match exactly what's already stored
@@ -40,9 +40,9 @@ var CATEGORY_TABLE_MAP = {
 // manualTable's settings skips that DOM scan entirely, so each category only
 // ever renders its own columns.
 var CATEGORY_CONTROLS = {
-    MORTGAGE: ["CaseID", "Client", "Adviser", "ApplicationType", "Status", "Modified"],
-    P4L: ["CaseID", "Client", "Adviser", "ApplicationType", "Status", "Modified"],
-    GI: ["CaseID", "Client", "Adviser", "ApplicationType", "Status", "Modified"]
+    MORTGAGE: ["CaseID", "Client", "Adviser", "ApplicationType", "CurrentStage", "Modified"],
+    P4L: ["CaseID", "Client", "Adviser", "ApplicationType", "CurrentStage", "Modified"],
+    GI: ["CaseID", "Client", "Adviser", "ApplicationType", "CurrentStage", "Modified"]
 };
 
 MainApplication.CasesComponent.ApplicationDetails = function () {
@@ -197,7 +197,7 @@ MainApplication.CasesComponent.retrieveRequest = function () {
         merge: true,
         data: [
             "ID", "Title", "Adviser", "Client", "Modified", "Status", "ApplicationType",
-            "CaseID"
+            "CaseID", "CurrentStage"
         ]
     };
 
@@ -225,11 +225,11 @@ MainApplication.CasesComponent.applyFilters = function () {
     var filter = AppRequest.filtersByCategory[category] || "all";
     if (filter === "completed") {
         data = data.filter(function (item) {
-            return CASES_STATUS.closedStatuses.indexOf(item.Approval_Status) !== -1;
+            return CASES_STATUS.closedStatuses.indexOf(item.Status) !== -1;
         });
     } else if (filter === "pending") {
         data = data.filter(function (item) {
-            return item.Approval_Status === CASES_STATUS.pendingApprovalStatus;
+            return item.Status === CASES_STATUS.pendingApprovalStatus;
         });
     }
 

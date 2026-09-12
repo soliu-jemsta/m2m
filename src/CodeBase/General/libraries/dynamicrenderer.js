@@ -57,27 +57,26 @@ const MORTGAGE_FIELD_POOL = {
     FixedPeriod: { key: "FixedPeriod", label: "Fixed Period (Years)", type: "Number" },
     MonthlyPayment: { key: "MonthlyPayment", label: "Monthly Payment", type: "Currency" },
     FeesAddedToLoan: { key: "FeesAddedToLoan", label: "Fees Added to Loan", type: "Currency" },
-    NewLender: { key: "NewLender", label: "New Lender", type: "Choice", options: [] /* TODO: lender list */ },
+    NewLender: { key: "NewLender", label: "New Lender", type: "Choice", options: ["Yes", "No"] },
     MortgageAccountNumber: { key: "MortgageAccountNumber", label: "Mortgage Account Number", type: "Text" },
-    Adviser: { key: "Adviser", label: "Adviser", type: "Choice", options: [] /* TODO: adviser list */ },
-    SubmissionRoute: { key: "SubmissionRoute", label: "Submission Route", type: "Choice", options: [] /* TODO */ },
-    PropertyInfo: { key: "PropertyInfo", label: "Property Info", type: "MultilineText" },
-    DetailsOfRecommendedProduct: { key: "DetailsOfRecommendedProduct", label: "Details of Recommended Product", type: "MultilineText" },
-    LeadDate: { key: "LeadDate", label: "Lead Date", type: "Date" },
-    NextActionDate: { key: "NextActionDate", label: "Next Action Date", type: "Date" },
-    NextCaseAction: { key: "NextCaseAction", label: "Next Case Action", type: "Text" },
-    Notes: { key: "Notes", label: "Notes", type: "MultilineText" },
 };
 
 const P4L_FIELD_POOL = {
-    PolicyType: { key: "PolicyType", label: "Policy Type", type: "Choice", options: [] /* TODO */ },
+    PolicyType: { key: "PolicyType", label: "Policy Type", type: "Choice", options: ["Term Assurance",
+        "Family Income Benefit",
+        "Critical Illness",
+        "Income Protection",
+        "Whole of Life",
+        "Relevant Life",
+        "Private Medical Insurance"] /* TODO */ },
     SumAssured: { key: "SumAssured", label: "Sum Assured / Monthly Benefit", type: "Currency" },
     Term_Years: { key: "Term_Years", label: "Term (Years)", type: "Number" },
-    PolicyProvider: { key: "PolicyProvider", label: "Policy Provider", type: "Choice", options: [] /* TODO */ },
+    PolicyProvider: { key: "PolicyProvider", label: "Policy Provider", type: "Choice", options: ["Provider 1",
+        "Provider 2",
+        "Provider 3"] /* TODO */ },
     OnRiskDate: { key: "OnRiskDate", label: "On Risk Date", type: "Date" },
-    Status: { key: "Status", label: "Status", type: "Choice", options: [] /* TODO */ },
     CommissionAmount: { key: "CommissionAmount", label: "Commission Amount", type: "Currency" },
-    CommissionType: { key: "CommissionType", label: "Commission Type", type: "Choice", options: [] /* TODO */ },
+    CommissionType: { key: "CommissionType", label: "Commission Type", type: "Choice", options: ["Initial", "Renewal", "Recurring", "Trail"] /* TODO */ },
     CommissionPeriod: { key: "CommissionPeriod", label: "Commission Period", type: "Number" },
     PolicyPremium: { key: "PolicyPremium", label: "Policy Premium", type: "Currency" },
     NextActionDate: { key: "NextActionDate", label: "Next Action Date", type: "Date" },
@@ -97,7 +96,7 @@ const GI_FIELD_POOL = {
     CurrentPremiumMonthly: { key: "CurrentPremiumMonthly", label: "Current Premium (Monthly)", type: "Currency" },
     PaymentMethod: { key: "PaymentMethod", label: "Payment Method", type: "Choice", options: ["Monthly", "Annually"] /* TODO */ },
     Status: { key: "Status", label: "Status", type: "Choice", options: ["Quote", "Live", "Cancelled", "Lapsed/Expired"] /* TODO */ },
-    SLStatus: { key: "SLStatus", label: "SL Status", type: "Choice", options: ["N/A", "Incomplete", "Drafted", "Sent"] /* TODO */ },
+    SLStatus: { key: "SLStatus", label: "SL Status", type: "Choice", options: ["N/A", "Incomplete", "Drafted", "Sent"] },
     RenewalPremiumAnnual: { key: "RenewalPremiumAnnual", label: "Renewal Premium (Annual)", type: "Currency" },
     BrokersCommission: { key: "BrokersCommission", label: "Broker's Commission", type: "Currency" },
     Comments: { key: "Comments", label: "Comments", type: "MultilineText" },
@@ -127,9 +126,7 @@ const FIELD_CONFIG = {
             ["PropertyValue", { required: true }],
             ["LoanAmount", { required: true }],
             ["RepaymentType", { required: true }],
-            ["InterestRate"], ["FixedPeriod"], ["MonthlyPayment"], ["FeesAddedToLoan"],
-            ["Adviser"], ["SubmissionRoute"], ["PropertyInfo"], ["DetailsOfRecommendedProduct"],
-            ["LeadDate"], ["NextActionDate"], ["NextCaseAction"], ["Notes"],
+            ["InterestRate"], ["FixedPeriod"], ["MonthlyPayment"], ["FeesAddedToLoan"]
         ]),
     },
 
@@ -141,9 +138,7 @@ const FIELD_CONFIG = {
             ["LoanAmount", { required: true }],
             ["CapitalRaising", { required: true }],
             ["RepaymentType", { required: true }],
-            ["InterestRate"], ["FixedPeriod"], ["MonthlyPayment"], ["FeesAddedToLoan"],
-            ["NewLender"], ["Adviser"], ["SubmissionRoute"], ["PropertyInfo"],
-            ["DetailsOfRecommendedProduct"], ["LeadDate"], ["NextActionDate"], ["NextCaseAction"], ["Notes"],
+            ["InterestRate"], ["FixedPeriod"], ["MonthlyPayment"], ["FeesAddedToLoan"]
         ]),
     },
 
@@ -154,9 +149,7 @@ const FIELD_CONFIG = {
             ["PropertyValue", { required: true }],
             ["LoanAmount", { required: true }],
             ["RepaymentType", { required: true }],
-            ["InterestRate"], ["FixedPeriod"], ["MonthlyPayment"], ["FeesAddedToLoan"],
-            ["Adviser"], ["SubmissionRoute"], ["PropertyInfo"], ["DetailsOfRecommendedProduct"],
-            ["LeadDate"], ["NextActionDate"], ["NextCaseAction"], ["Notes"],
+            ["InterestRate"], ["FixedPeriod"], ["MonthlyPayment"], ["FeesAddedToLoan"]
         ]),
     },
 
@@ -168,9 +161,7 @@ const FIELD_CONFIG = {
             ["LoanAmount", { required: true }],
             ["CapitalRaising", { required: true }],
             ["RepaymentType", { required: true }],
-            ["InterestRate"], ["FixedPeriod"], ["MonthlyPayment"], ["FeesAddedToLoan"],
-            ["NewLender"], ["Adviser"], ["SubmissionRoute"], ["PropertyInfo"],
-            ["DetailsOfRecommendedProduct"], ["LeadDate"], ["NextActionDate"], ["NextCaseAction"], ["Notes"],
+            ["InterestRate"], ["FixedPeriod"], ["MonthlyPayment"], ["FeesAddedToLoan"]
         ]),
     },
 
@@ -182,8 +173,7 @@ const FIELD_CONFIG = {
             ["LoanAmount", { required: true }],
             ["NewLender", { required: true }],
             ["RepaymentType", { required: true }],
-            ["InterestRate"], ["FixedPeriod"], ["MonthlyPayment"], ["FeesAddedToLoan"],
-            ["DetailsOfRecommendedProduct"], ["Adviser"], ["LeadDate"], ["NextActionDate"], ["Notes"],
+            ["InterestRate"], ["FixedPeriod"], ["MonthlyPayment"], ["FeesAddedToLoan"]
         ]),
     },
 
@@ -194,9 +184,7 @@ const FIELD_CONFIG = {
             ["PropertyValue", { required: true }],
             ["LoanAmount", { required: true }],
             ["RepaymentType", { required: true }],
-            ["InterestRate"], ["FixedPeriod"], ["MonthlyPayment"], ["FeesAddedToLoan"],
-            ["Adviser"], ["SubmissionRoute"], ["PropertyInfo"], ["DetailsOfRecommendedProduct"],
-            ["LeadDate"], ["NextActionDate"], ["NextCaseAction"], ["Notes"],
+            ["InterestRate"], ["FixedPeriod"], ["MonthlyPayment"], ["FeesAddedToLoan"]
         ]),
     },
 
@@ -207,9 +195,7 @@ const FIELD_CONFIG = {
             ["PropertyValue", { required: true }],
             ["LoanAmount", { required: true }],
             ["RepaymentType"],
-            ["InterestRate"], ["FixedPeriod"], ["MonthlyPayment"], ["FeesAddedToLoan"],
-            ["PropertyInfo"], ["DetailsOfRecommendedProduct"], ["Adviser"],
-            ["LeadDate"], ["NextActionDate"], ["NextCaseAction"], ["Notes"],
+            ["InterestRate"], ["FixedPeriod"], ["MonthlyPayment"], ["FeesAddedToLoan"]
         ]),
     },
 
@@ -220,8 +206,7 @@ const FIELD_CONFIG = {
             ["PropertyValue", { required: true }],
             ["LoanAmount", { required: true }],
             ["RepaymentType", { required: true }],
-            ["InterestRate"], ["MonthlyPayment"], ["FeesAddedToLoan"],
-            ["DetailsOfRecommendedProduct"], ["Adviser"], ["LeadDate"], ["NextActionDate"], ["Notes"],
+            ["InterestRate"], ["MonthlyPayment"], ["FeesAddedToLoan"]
         ]),
     },
 
@@ -232,8 +217,7 @@ const FIELD_CONFIG = {
             ["PropertyValue", { required: true }],
             ["LoanAmount", { required: true }],
             ["RepaymentType", { required: true }],
-            ["InterestRate"], ["FixedPeriod"], ["MonthlyPayment"], ["FeesAddedToLoan"],
-            ["DetailsOfRecommendedProduct"], ["Adviser"], ["LeadDate"], ["NextActionDate"], ["Notes"],
+            ["InterestRate"], ["FixedPeriod"], ["MonthlyPayment"], ["FeesAddedToLoan"]
         ]),
     },
 
@@ -242,8 +226,7 @@ const FIELD_CONFIG = {
         fields: pick(P4L_FIELD_POOL, [
             ["PolicyType", { required: true }],
             ["SumAssured", { required: true }],
-            ["Term_Years"], ["PolicyProvider"], ["OnRiskDate"],
-            ["NextActionDate"], ["NextActionDescription"], ["Comments"],
+            ["Term_Years"], ["PolicyProvider"], ["OnRiskDate"]
         ]),
     },
 
@@ -253,8 +236,7 @@ const FIELD_CONFIG = {
             ["PolicyType", { required: true }],
             ["SumAssured", { required: true }],
             ["Term_Years"], ["PolicyProvider"], ["OnRiskDate"],
-            ["CommissionAmount"], ["CommissionType"], ["CommissionPeriod"], ["PolicyPremium"],
-            ["NextActionDate"], ["NextActionDescription"], ["Comments"],
+            ["CommissionAmount"], ["CommissionType"], ["CommissionPeriod"], ["PolicyPremium"]
         ]),
     },
 
@@ -265,8 +247,7 @@ const FIELD_CONFIG = {
             ["SumAssured", { required: true }],
             ["Term_Years", { required: true }],
             ["PolicyProvider"], ["OnRiskDate"],
-            ["CommissionAmount"], ["CommissionType"], ["CommissionPeriod"], ["PolicyPremium"],
-            ["NextActionDate"], ["NextActionDescription"], ["Comments"],
+            ["CommissionAmount"], ["CommissionType"], ["CommissionPeriod"], ["PolicyPremium"]
         ]),
     },
 
@@ -276,8 +257,7 @@ const FIELD_CONFIG = {
             ["SumAssured", { required: true }],
             ["PolicyType", { required: true }],
             ["Term_Years"], ["PolicyProvider"], ["OnRiskDate"],
-            ["CommissionAmount"], ["CommissionType"], ["CommissionPeriod"], ["PolicyPremium"],
-            ["NextActionDate"], ["NextActionDescription"], ["Comments"],
+            ["CommissionAmount"], ["CommissionType"], ["CommissionPeriod"], ["PolicyPremium"]
         ]),
     },
 
@@ -287,8 +267,7 @@ const FIELD_CONFIG = {
             ["PolicyType", { required: true }],
             ["SecurityAddress", { required: true }],
             ["Insurer"], ["PolicyNumber"], ["PolicyRefTheSource"], ["SourcingSystem"],
-            ["OnRiskDate"], ["CurrentPremiumAnnual"], ["CurrentPremiumMonthly"], ["PaymentMethod"],
-            ["Status"], ["SLStatus"], ["RenewalPremiumAnnual"], ["BrokersCommission"], ["Comments"],
+            ["OnRiskDate"], ["CurrentPremiumAnnual"], ["CurrentPremiumMonthly"], ["PaymentMethod"]
         ]),
     },
 };

@@ -257,7 +257,7 @@ var CaseTaskService = (function () {
     callback = callback || function () {};
     var updateObj = {
       ID: taskItemId,
-      TaskStatus: "Done",
+      TaskStatus: "Completed",
       CompletedDate: new Date(),
     };
     $spcontext.updateItems(
