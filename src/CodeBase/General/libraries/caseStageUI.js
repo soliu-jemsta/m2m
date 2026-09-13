@@ -247,24 +247,15 @@ var CaseStageUI = (function () {
             '">' +
             cardsHtml +
             "</div>" +
-            
             "</div>"
           );
         })
         .join("");
 
       bindKanbanDragDrop(container, caseId);
-      bindAddTaskButtons(container, caseId);
     });
   }
 
-  function bindAddTaskButtons(container, caseId) {
-    container.querySelectorAll(".kb-add-task").forEach(function (btn) {
-      btn.addEventListener("click", function () {
-        openNewTaskModal(caseId, btn.getAttribute("data-stage"));
-      });
-    });
-  }
 
   function bindKanbanDragDrop(container, caseId) {
     var cards = container.querySelectorAll(".kb-card[data-task-id]");
@@ -366,8 +357,9 @@ var CaseStageUI = (function () {
       '<select id="nt_priority">' +
       '<option>High</option><option selected>Medium</option><option>Low</option>' +
       "</select></label>" +
-      '<label class="kb-field"><span>Assign to (email)</span>' +
-      '<input type="text" id="nt_assignee" placeholder="user@domain.com" /></label>' +
+      '<label class="kb-field"><span>Assign to</span>' +
+      '<select id="nt_assignee" custom-people="nt_assignee" class="kb-people-select" style="width:100%">' +
+      '<option value=""></option></select></label>' +
       '<label class="kb-field"><span>Due date</span>' +
       '<input type="date" id="nt_due" /></label>' +
       '<label class="kb-field"><span>Description / comment</span>' +
@@ -402,14 +394,82 @@ var CaseStageUI = (function () {
 
     document.getElementById("nt_title").value = "";
     document.getElementById("nt_priority").value = "Medium";
-    document.getElementById("nt_assignee").value = "";
     document.getElementById("nt_due").value = "";
     document.getElementById("nt_desc").value = "";
+
+    // People picker from MainApplication.advisersList (Title + Email)
+    initAssigneePicker();
 
     modal.style.display = "flex";
     setTimeout(function () {
       document.getElementById("nt_title").focus();
     }, 50);
+  }
+
+  function initAssigneePicker() {
+    var $sel = $("#nt_assignee");
+    if (!$sel.length) return;
+
+    var list =
+      (window.MainApplication && MainApplication.advisersList) || [];
+
+    // Prefer existing PeoplePicker + Select2 if available
+    if (typeof PeoplePicker !== "undefined" && typeof PeoplePicker.initializePeoplePickers === "function") {
+      try {
+        if ($sel.data("select2")) {
+          $sel.select2("destroy");
+        }
+      } catch (e) {}
+      $sel.empty().append('<option></option>');
+      // initializePeoplePickers expects array of { Title, Email } or map by picker id
+      PeoplePicker.initializePeoplePickers(
+        { nt_assignee: list },
+        undefined,
+        "custom-people"
+      );
+      // dropdownParent so Select2 works inside our modal
+      try {
+        if ($sel.data("select2")) {
+          $sel.select2("destroy");
+        }
+        $sel.select2({
+          placeholder: "Select adviser",
+          allowClear: true,
+          width: "100%",
+          dropdownParent: $("#newTaskModal .kb-modal"),
+          data: list
+            .filter(function (p) { return p && p.Email; })
+            .map(function (p) {
+              return { id: p.Email, text: p.Title || p.Email };
+            })
+        });
+      } catch (e2) {
+        console.warn("Select2 init fallback", e2);
+        fillAssigneeOptionsPlain($sel, list);
+      }
+      return;
+    }
+
+    fillAssigneeOptionsPlain($sel, list);
+  }
+
+  function fillAssigneeOptionsPlain($sel, list) {
+    $sel.empty().append('<option value="">— Unassigned —</option>');
+    (list || []).forEach(function (p) {
+      if (!p || !p.Email) return;
+      var label = p.Title || p.Email;
+      $sel.append(
+        $("<option></option>").attr("value", p.Email).text(label)
+      );
+    });
+  }
+
+  function getSelectedAssigneeEmail() {
+    var $sel = $("#nt_assignee");
+    if (!$sel.length) return "";
+    var val = $sel.val();
+    if (Array.isArray(val)) val = val[0];
+    return (val || "").trim();
   }
 
   function closeNewTaskModal() {
@@ -432,7 +492,7 @@ var CaseStageUI = (function () {
       Title: title,
       Stage: document.getElementById("nt_stage").value,
       Priority: document.getElementById("nt_priority").value,
-      AssignedTo: (document.getElementById("nt_assignee").value || "").trim() || undefined,
+      AssignedTo: getSelectedAssigneeEmail() || undefined,
       Description: (document.getElementById("nt_desc").value || "").trim() || undefined,
       DueDate: document.getElementById("nt_due").value || undefined,
       ApplicationType: root ? root.getAttribute("data-app-type") : ""

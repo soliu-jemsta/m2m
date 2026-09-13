@@ -67,6 +67,29 @@ var CaseTaskService = (function () {
     return "";
   }
 
+
+  /**
+   * Build SP.FieldUserValue for Person/Group columns from an email or login.
+   */
+  function toFieldUserValue(emailOrLogin) {
+    if (!emailOrLogin) return null;
+    // Already a FieldUserValue-like object
+    if (typeof emailOrLogin === "object" && emailOrLogin.get_lookupId) {
+      return emailOrLogin;
+    }
+    var key = String(emailOrLogin).trim();
+    if (!key) return null;
+    try {
+      if (typeof SP !== "undefined" && SP.FieldUserValue && SP.FieldUserValue.fromUser) {
+        return SP.FieldUserValue.fromUser(key);
+      }
+    } catch (e) {
+      console.warn("toFieldUserValue fromUser failed", e);
+    }
+    // Last resort — some tenants accept email string via ensureUser on create
+    return key;
+  }
+
   function createTasksForStage(context, callback) {
     callback = callback || function () {};
 
@@ -112,7 +135,7 @@ var CaseTaskService = (function () {
       };
 
       if (assignee && typeof assignee === "string" && assignee.indexOf("@") !== -1) {
-        item.AssignedTo = assignee;
+        item.AssignedTo = toFieldUserValue(assignee);
       }
 
       if (t.DueInDays != null) {
@@ -159,7 +182,8 @@ var CaseTaskService = (function () {
     };
 
     if (data.AssignedTo) {
-      item.AssignedTo = data.AssignedTo; // email or login SharePoint understands
+      // Person/Group column — must be SP.FieldUserValue, not a plain email string
+      item.AssignedTo = toFieldUserValue(data.AssignedTo);
     }
     if (data.Description) {
       item.Description = data.Description;
