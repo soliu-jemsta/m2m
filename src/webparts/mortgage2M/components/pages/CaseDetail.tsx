@@ -2,9 +2,9 @@ import * as React from "react";
 import ClientButton from "../../../../Global/ClientButton";
 
 require("casedetail");
-// require("caseTaskService");
-// require("caseStageUI");
-// require("taskTemplate");
+require("caseTaskService");
+require("caseStageUI");
+require("taskTemplate");
 
 export default class CaseDetail extends React.Component<{}, {}> {
   public render(): React.ReactElement {
@@ -24,14 +24,33 @@ export default class CaseDetail extends React.Component<{}, {}> {
               <span id="caseHeaderRef" className="case-ref" />
             </h2>
             <p style={{ fontSize: 12.5, color: "var(--muted)" }}>
-              <span id="caseHeaderClient" /> · Stage: <span id="caseHeaderStage" />
+              <span id="caseHeaderClient" /> · Stage:{" "}
+              <span id="caseHeaderStage" />
             </p>
           </div>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
             <select id="case_next_stage" />
-            <ClientButton clax="btn btn-primary btn-sm" func="CaseDetailComponent.advanceStage">
+            <ClientButton
+              clax="btn btn-primary btn-sm"
+              func="CaseDetailComponent.advanceStage"
+            >
               Advance Stage
             </ClientButton>
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={() => {
+                const root = document.getElementById("caseDetailRoot");
+                const caseId = root && root.getAttribute("data-case-id");
+                const stage =
+                  (root && root.getAttribute("data-current-stage")) || "Lead";
+                if (caseId && (window as any).CaseStageUI) {
+                  (window as any).CaseStageUI.openNewTaskModal(caseId, stage);
+                }
+              }}
+            >
+              + New Task
+            </button>
             <a href="#/cases" className="btn btn-secondary btn-sm">
               Back to Cases
             </a>
@@ -44,6 +63,6 @@ export default class CaseDetail extends React.Component<{}, {}> {
   }
 
   public componentDidMount(): void {
-    window.loadCaseDetailComponent();
+    (window as any).loadCaseDetailComponent();
   }
 }

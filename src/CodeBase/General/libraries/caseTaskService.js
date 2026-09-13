@@ -1,5 +1,5 @@
 /**
- * CaseTaskService — stage updates + task creation from templates
+ * CaseTaskService — stage updates + task creation + manual tasks + kanban moves
  */
 
 var CaseTaskService = (function () {
@@ -25,22 +25,12 @@ var CaseTaskService = (function () {
     return d;
   }
 
-  /** Turn SP / generic errors into a readable string */
   function formatError(err) {
     if (err == null) return "Unknown error";
     if (typeof err === "string") return err;
     try {
-      if (err.get_message && typeof err.get_message === "function") {
-        return err.get_message();
-      }
+      if (typeof err.get_message === "function") return err.get_message();
     } catch (e) {}
-    // updateItems onFailed(sender, args, meta) — sometimes only args is useful
-    if (arguments.length >= 2) {
-      var args = arguments[1];
-      try {
-        if (args && args.get_message) return args.get_message();
-      } catch (e) {}
-    }
     if (err.message) return err.message;
     if (err.err_description) return err.err_description;
     try {
@@ -50,20 +40,31 @@ var CaseTaskService = (function () {
     }
   }
 
-  /**
-   * Normalize onFailed from SpeedPoint: (sender, args, meta)
-   */
   function spFailToMessage(sender, args, meta) {
     var parts = [];
     try {
-      if (args && args.get_message) parts.push(args.get_message());
+      if (args && typeof args.get_message === "function") parts.push(args.get_message());
       else if (args && args.message) parts.push(args.message);
     } catch (e) {}
     if (meta && meta.err_description) parts.push(meta.err_description);
     if (meta && meta.resource) parts.push("(" + meta.resource + ")");
     if (meta && meta.name) parts.push("[" + meta.name + "]");
-    if (!parts.length) parts.push(formatError(args || sender || meta));
+    if (!parts.length) parts.push("SharePoint operation failed");
     return parts.join(" — ");
+  }
+
+  function personDisplay(val) {
+    if (!val) return "";
+    if (typeof val === "string") return val;
+    try {
+      if (val.get_lookupValue) return val.get_lookupValue() || "";
+    } catch (e) {}
+    try {
+      if (val.get_title) return val.get_title() || "";
+    } catch (e) {}
+    if (val.Title) return val.Title;
+    if (val.value) return val.value;
+    return "";
   }
 
   function createTasksForStage(context, callback) {
@@ -96,7 +97,7 @@ var CaseTaskService = (function () {
         Client: context.Client,
         CaseID: context.CaseID,
         Adviser: context.AdviserName || "",
-        Stage: context.Stage,
+        Stage: context.Stage
       });
 
       var item = {
@@ -105,13 +106,11 @@ var CaseTaskService = (function () {
         ApplicationType: context.ApplicationType || "",
         TaskStatus: "Open",
         Stage: context.Stage,
-        TemplateKey: t.TemplateKey,
+        TemplateKey: t.TemplateKey || "",
         IsAutoCreated: true,
-        Priority: t.Priority || "Medium",
+        Priority: t.Priority || "Medium"
       };
 
-      // Only set AssignedTo if we have a usable value.
-      // Person fields often need login/email; if it fails SP will error — we can omit.
       if (assignee && typeof assignee === "string" && assignee.indexOf("@") !== -1) {
         item.AssignedTo = assignee;
       }
@@ -137,6 +136,81 @@ var CaseTaskService = (function () {
     );
   }
 
+  /**
+   * Manually create a single task
+   * data: { CaseID, Title, Stage, Priority, AssignedTo, Description/Comments, DueDate, ApplicationType }
+   */
+  function createManualTask(data, callback) {
+    callback = callback || function () {};
+
+    if (!data || !data.CaseID || !data.Title) {
+      callback("CaseID and Title are required");
+      return;
+    }
+
+    var item = {
+      Title: data.Title,
+      CaseID: data.CaseID,
+      ApplicationType: data.ApplicationType || "",
+      TaskStatus: data.TaskStatus || "Open",
+      Stage: data.Stage || "Lead",
+      Priority: data.Priority || "Medium",
+      IsAutoCreated: false
+    };
+
+    if (data.AssignedTo) {
+      item.AssignedTo = data.AssignedTo; // email or login SharePoint understands
+    }
+    if (data.Description) {
+      item.Description = data.Description;
+    }
+    if (data.Comments) {
+      item.Comments = data.Comments;
+    }
+    // Prefer Description; also map Comments → Description if only one column exists
+    if (data.Description && !data.Comments) {
+      item.Comments = data.Description;
+    }
+    if (data.DueDate) {
+      item.DueDate = data.DueDate instanceof Date ? data.DueDate : new Date(data.DueDate);
+    }
+
+    console.log("[CaseTaskService] createManualTask", item);
+
+    $spcontext.createItems(
+      [item],
+      getTasksListName(),
+      function (created) {
+        callback(null, created);
+      },
+      function (sender, args, meta) {
+        // Retry without optional fields that may not exist
+        var msg = spFailToMessage(sender, args, meta);
+        console.warn("createManualTask first attempt failed:", msg, "— retrying minimal fields");
+
+        var minimal = {
+          Title: item.Title,
+          CaseID: item.CaseID,
+          TaskStatus: item.TaskStatus,
+          Stage: item.Stage,
+          Priority: item.Priority
+        };
+        if (item.AssignedTo) minimal.AssignedTo = item.AssignedTo;
+
+        $spcontext.createItems(
+          [minimal],
+          getTasksListName(),
+          function (created) {
+            callback(null, created);
+          },
+          function (s2, a2, m2) {
+            callback(spFailToMessage(s2, a2, m2));
+          }
+        );
+      }
+    );
+  }
+
   function changeStage(options, callback) {
     callback = callback || function () {};
 
@@ -146,17 +220,9 @@ var CaseTaskService = (function () {
     }
 
     var casesList = getCasesListName();
-
-    // Only update fields that almost certainly exist.
-    // Add LastAction* only if you confirmed those columns on CASESLIST.
     var updateObj = {
-      CurrentStage: options.Stage,
+      CurrentStage: options.Stage
     };
-
-    // Optional metadata — comment in if columns exist on CASESLIST:
-    // updateObj.LastActionDate = new Date();
-    // Do NOT set LastActionBy to a raw email unless the column is Single line of text.
-    // For Person columns you must ensureUser first.
 
     function afterUpdate() {
       if (options.skipTasks) {
@@ -175,16 +241,15 @@ var CaseTaskService = (function () {
           ProtectionAdviser: options.ProtectionAdviser,
           Initiator:
             options.Initiator ||
-            (CurrentUserProperties && CurrentUserProperties.email),
+            (CurrentUserProperties && CurrentUserProperties.email)
         },
         function (err, tasks) {
-          // Stage already saved — surface task errors as warning, not hard failure
           if (err) {
             console.warn("Stage updated but task creation failed:", err);
             callback(null, {
               stageUpdated: true,
               tasks: tasks || [],
-              taskWarning: formatError(err),
+              taskWarning: formatError(err)
             });
             return;
           }
@@ -194,15 +259,15 @@ var CaseTaskService = (function () {
     }
 
     function doUpdate(itemId) {
-      if (!itemId && itemId !== 0) {
-        callback("Missing CASESLIST item ID — cannot update stage");
+      if (itemId == null || isNaN(Number(itemId))) {
+        callback("Missing or invalid CASESLIST item ID");
         return;
       }
-      updateObj.ID = itemId;
+      updateObj.ID = Number(itemId);
       console.log("[CaseTaskService] update stage", {
         list: casesList,
-        id: itemId,
-        stage: options.Stage,
+        id: updateObj.ID,
+        stage: options.Stage
       });
 
       $spcontext.updateItems(
@@ -220,7 +285,7 @@ var CaseTaskService = (function () {
     }
 
     if (options.CaseListItemId) {
-      doUpdate(parseInt(options.CaseListItemId, 10));
+      doUpdate(options.CaseListItemId);
     } else if (options.CaseID) {
       var caml =
         "<View><Query><Where>" +
@@ -234,15 +299,14 @@ var CaseTaskService = (function () {
         caml,
         function (itemCollection) {
           var count =
-            itemCollection && itemCollection.get_count
+            itemCollection && typeof itemCollection.get_count === "function"
               ? itemCollection.get_count()
               : 0;
           if (!count) {
             callback("Case not found in CASESLIST: " + options.CaseID);
             return;
           }
-          var spItem = itemCollection.getItemAtIndex(0);
-          doUpdate(spItem.get_id());
+          doUpdate(itemCollection.getItemAtIndex(0).get_id());
         },
         function (sender, args, meta) {
           callback(spFailToMessage(sender, args, meta));
@@ -255,13 +319,8 @@ var CaseTaskService = (function () {
 
   function completeTask(taskItemId, callback) {
     callback = callback || function () {};
-    var updateObj = {
-      ID: taskItemId,
-      TaskStatus: "Completed",
-      CompletedDate: new Date(),
-    };
     $spcontext.updateItems(
-      [updateObj],
+      [{ ID: taskItemId, TaskStatus: "Done", CompletedDate: new Date() }],
       getTasksListName(),
       function () {
         callback(null);
@@ -272,46 +331,45 @@ var CaseTaskService = (function () {
     );
   }
 
-  function getOpenTasksForCase(caseId, callback) {
-    var caml =
-      "<View><Query><Where><And>" +
-      "<Eq><FieldRef Name='CaseID'/><Value Type='Text'>" +
-      caseId +
-      "</Value></Eq>" +
-      "<Eq><FieldRef Name='TaskStatus'/><Value Type='Choice'>Open</Value></Eq>" +
-      "</And></Where>" +
-      "<OrderBy><FieldRef Name='DueDate' Ascending='TRUE'/></OrderBy>" +
-      "</Query></View>";
+  function mapTaskItem(it) {
+    var assigned = null;
+    try {
+      assigned = it.get_item("AssignedTo");
+    } catch (e) {}
+    var description = "";
+    try {
+      description = it.get_item("Description") || "";
+    } catch (e) {}
+    if (!description) {
+      try {
+        description = it.get_item("Comments") || "";
+      } catch (e) {}
+    }
+    if (!description) {
+      try {
+        description = it.get_item("Body") || "";
+      } catch (e) {}
+    }
 
-    // Prefer getItem + map if getListToItems signature differs in your build
-    $spcontext.getItem(
-      getTasksListName(),
-      caml,
-      function (coll) {
-        var out = [];
+    return {
+      ID: it.get_id(),
+      Title: it.get_item("Title"),
+      CaseID: it.get_item("CaseID"),
+      TaskStatus: it.get_item("TaskStatus"),
+      Stage: it.get_item("Stage"),
+      Priority: it.get_item("Priority"),
+      DueDate: it.get_item("DueDate"),
+      AssignedTo: assigned,
+      AssignedToDisplay: personDisplay(assigned),
+      Description: description,
+      IsAutoCreated: (function () {
         try {
-          var en = coll.getEnumerator();
-          while (en.moveNext()) {
-            var it = en.get_current();
-            out.push({
-              ID: it.get_id(),
-              Title: it.get_item("Title"),
-              CaseID: it.get_item("CaseID"),
-              TaskStatus: it.get_item("TaskStatus"),
-              Stage: it.get_item("Stage"),
-              Priority: it.get_item("Priority"),
-              DueDate: it.get_item("DueDate"),
-            });
-          }
+          return it.get_item("IsAutoCreated");
         } catch (e) {
-          console.warn("getOpenTasksForCase map error", e);
+          return null;
         }
-        callback(null, out);
-      },
-      function (sender, args, meta) {
-        callback(spFailToMessage(sender, args, meta), []);
-      }
-    );
+      })()
+    };
   }
 
   function getAllTasksForCase(caseId, callback) {
@@ -320,9 +378,7 @@ var CaseTaskService = (function () {
       "<Eq><FieldRef Name='CaseID'/><Value Type='Text'>" +
       caseId +
       "</Value></Eq>" +
-      "</Where>" +
-      "<OrderBy><FieldRef Name='ID' Ascending='TRUE'/></OrderBy>" +
-      "</Query></View>";
+      "</Where></Query></View>";
 
     $spcontext.getItem(
       getTasksListName(),
@@ -330,18 +386,13 @@ var CaseTaskService = (function () {
       function (coll) {
         var out = [];
         try {
+          if (!coll || typeof coll.getEnumerator !== "function") {
+            callback(null, []);
+            return;
+          }
           var en = coll.getEnumerator();
           while (en.moveNext()) {
-            var it = en.get_current();
-            out.push({
-              ID: it.get_id(),
-              Title: it.get_item("Title"),
-              CaseID: it.get_item("CaseID"),
-              TaskStatus: it.get_item("TaskStatus"),
-              Stage: it.get_item("Stage"),
-              Priority: it.get_item("Priority"),
-              DueDate: it.get_item("DueDate"),
-            });
+            out.push(mapTaskItem(en.get_current()));
           }
         } catch (e) {
           console.warn("getAllTasksForCase map error", e);
@@ -349,49 +400,117 @@ var CaseTaskService = (function () {
         callback(null, out);
       },
       function (sender, args, meta) {
-        // List may not exist yet — return empty rather than hard fail kanban
         console.warn("getAllTasksForCase failed", spFailToMessage(sender, args, meta));
         callback(null, []);
       }
     );
   }
 
-  function onNewCaseCreated(context, callback) {
-    var initialStage = context.InitialStage || "Lead";
-    changeStage(
-      {
-        CaseID: context.CaseID,
-        CaseListItemId: context.CaseListItemId,
-        Stage: initialStage,
-        ApplicationType: context.ApplicationType,
-        Client: context.Client,
-        Adviser: context.Adviser,
-        AdviserName: context.AdviserName,
-        CaseManager: context.CaseManager,
-        Initiator: context.Initiator,
-      },
-      callback
-    );
+  function getOpenTasksForCase(caseId, callback) {
+    getAllTasksForCase(caseId, function (err, tasks) {
+      if (err) {
+        callback(err, []);
+        return;
+      }
+      callback(
+        null,
+        (tasks || []).filter(function (t) {
+          return t.TaskStatus !== "Done" && t.TaskStatus !== "Cancelled";
+        })
+      );
+    });
   }
 
-
-  function moveTaskToStage(taskId, newStage, callback) {
+  /**
+   * Move a task card to a new stage column.
+   * options (optional): { alsoUpdateCaseStage: true, CaseID, CaseListItemId }
+   * When alsoUpdateCaseStage is true, CASESLIST.CurrentStage is set to newStage.
+   */
+  function moveTaskToStage(taskId, newStage, callback, options) {
     callback = callback || function () {};
+    options = options || {};
+
+    var listName = getTasksListName();
+    var id = parseInt(taskId, 10);
+    console.log("[CaseTaskService] moveTaskToStage", {
+      list: listName,
+      taskId: id,
+      newStage: newStage,
+      alsoUpdateCaseStage: !!options.alsoUpdateCaseStage
+    });
+
+    if (!id) {
+      callback("Invalid task ID: " + taskId);
+      return;
+    }
+
     $spcontext.updateItems(
-      [{ ID: taskId, Stage: newStage }],
-      getTasksListName(),
-      function () { callback(null); },
+      [{ ID: id, Stage: newStage }],
+      listName,
+      function () {
+        if (!options.alsoUpdateCaseStage) {
+          console.log("[CaseTaskService] moveTaskToStage OK (task only)");
+          callback(null, { list: listName, id: id, stage: newStage });
+          return;
+        }
+
+        // Also update Universal CASESLIST.CurrentStage
+        changeStage(
+          {
+            CaseID: options.CaseID,
+            CaseListItemId: options.CaseListItemId,
+            Stage: newStage,
+            skipTasks: true // don't auto-create template tasks on drag
+          },
+          function (err) {
+            if (err) {
+              console.warn("Task moved but CASESLIST CurrentStage failed:", err);
+              callback(null, {
+                list: listName,
+                id: id,
+                stage: newStage,
+                caseStageWarning: formatError(err)
+              });
+              return;
+            }
+            console.log("[CaseTaskService] moveTaskToStage OK (task + CASESLIST)");
+            callback(null, {
+              list: listName,
+              id: id,
+              stage: newStage,
+              caseStageUpdated: true
+            });
+          }
+        );
+      },
       function (sender, args, meta) {
-        var msg = (typeof spFailToMessage === "function")
-          ? spFailToMessage(sender, args, meta)
-          : ((args && args.get_message && args.get_message()) || "Move failed");
+        var msg = spFailToMessage(sender, args, meta);
+        console.error("[CaseTaskService] moveTaskToStage FAILED", msg);
         callback(msg);
       }
     );
   }
 
+  function onNewCaseCreated(context, callback) {
+    changeStage(
+      {
+        CaseID: context.CaseID,
+        CaseListItemId: context.CaseListItemId,
+        Stage: context.InitialStage || "Lead",
+        ApplicationType: context.ApplicationType,
+        Client: context.Client,
+        Adviser: context.Adviser,
+        AdviserName: context.AdviserName,
+        CaseManager: context.CaseManager,
+        Initiator: context.Initiator
+      },
+      callback
+    );
+  }
+
   return {
     createTasksForStage: createTasksForStage,
+    createManualTask: createManualTask,
     changeStage: changeStage,
     completeTask: completeTask,
     getOpenTasksForCase: getOpenTasksForCase,
@@ -400,7 +519,7 @@ var CaseTaskService = (function () {
     onNewCaseCreated: onNewCaseCreated,
     getTasksListName: getTasksListName,
     getCasesListName: getCasesListName,
-    formatError: formatError,
+    formatError: formatError
   };
 })();
 

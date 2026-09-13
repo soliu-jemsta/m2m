@@ -1,21 +1,12 @@
 /**
- * Change Stage UI helper
- * ----------------------
- * Call from Case Detail page when user picks a new stage and clicks "Advance Stage".
- *
- * Expected DOM (simple version):
- *   <select id="case_next_stage">...</select>
- *   <button onclick="CaseStageUI.advance()">Advance Stage</button>
- *
- * Or call CaseStageUI.advanceWithData({...}) from React.
+ * CaseStageUI — stage select, advance, kanban (drag), manual task modal
  */
 
 var CaseStageUI = (function () {
   "use strict";
 
-  /**
-   * Populate a <select> with CASE_STAGES
-   */
+  var _lastKanban = null; // { caseId, containerId, currentStage }
+
   function fillStageSelect(selectId, currentStage) {
     var el = document.getElementById(selectId);
     if (!el || !window.CASE_STAGES) return;
@@ -26,11 +17,6 @@ var CaseStageUI = (function () {
     }).join("");
   }
 
-  /**
-   * Read from a page that has data attributes or hidden fields, then change stage.
-   * Expected hidden fields / data on #caseDetailRoot:
-   *   data-case-id, data-case-list-id, data-app-type, data-client, data-adviser
-   */
   function advance() {
     var root = document.getElementById("caseDetailRoot");
     var stageEl = document.getElementById("case_next_stage");
@@ -42,7 +28,7 @@ var CaseStageUI = (function () {
     var newStage = stageEl.value;
     var current = root.getAttribute("data-current-stage");
     if (newStage === current) {
-      if (window.showToast) showToast("Already on this stage", "info");
+      if (MainApplication.notyf) MainApplication.notyf.success("Already on this stage");
       else alert("Already on this stage");
       return;
     }
@@ -62,14 +48,17 @@ var CaseStageUI = (function () {
         Client: root.getAttribute("data-client"),
         Adviser: root.getAttribute("data-adviser"),
         CaseManager: root.getAttribute("data-case-manager") || root.getAttribute("data-adviser"),
-        Initiator: CurrentUserProperties.email
+        Initiator: CurrentUserProperties && CurrentUserProperties.email
       },
       function (err, result) {
         globalDefinitions.closeLoader();
         if (err) {
-          var msg = (window.CaseTaskService && CaseTaskService.formatError)
-            ? CaseTaskService.formatError(err)
-            : (typeof err === "string" ? err : (err && err.message) || String(err));
+          var msg =
+            window.CaseTaskService && CaseTaskService.formatError
+              ? CaseTaskService.formatError(err)
+              : typeof err === "string"
+              ? err
+              : (err && err.message) || String(err);
           globalDefinitions.HandlerError("Could not update stage: " + msg, false);
           return;
         }
@@ -84,76 +73,25 @@ var CaseStageUI = (function () {
           successMsg += " — tasks created";
         }
 
-        if (window.showToast) {
-          showToast(successMsg, "success");
-        } else {
-          globalDefinitions.HandlerSuccess(successMsg);
-        }
+        if (MainApplication.notyf) MainApplication.notyf.success(successMsg);
+        else globalDefinitions.HandlerSuccess(successMsg);
 
-        // Refresh open tasks panel if present
-        if (typeof CaseStageUI.reloadTasks === "function") {
-          CaseStageUI.reloadTasks(root.getAttribute("data-case-id"));
-        }
-
-        // Optional: refresh stage pill / progress bar
-        if (typeof CaseStageUI.refreshProgress === "function") {
-          CaseStageUI.refreshProgress(newStage);
-        }
+        renderKanban(root.getAttribute("data-case-id"), "caseKanbanBoard", newStage);
       }
     );
   }
 
-  /**
-   * Programmatic version for React / SPFx pages
-   */
   function advanceWithData(data, callback) {
     CaseTaskService.changeStage(data, callback);
   }
-
-  /**
-   * Render open tasks into a container
-   */
-  function reloadTasks(caseId, containerId) {
-    containerId = containerId || "caseOpenTasks";
-    var container = document.getElementById(containerId);
-    if (!container) return;
-
-    CaseTaskService.getOpenTasksForCase(caseId, function (err, tasks) {
-      if (err || !tasks.length) {
-        container.innerHTML =
-          '<div style="padding:12px;color:#94a3b8;font-size:13px">No open tasks for this case.</div>';
-        return;
-      }
-
-      container.innerHTML = tasks
-        .map(function (t) {
-          var due = t.DueDate
-            ? new Date(t.DueDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })
-            : "—";
-          var priority = t.Priority || "Medium";
-          var id = t.ID || t.Id;
-          return (
-            '<div class="task-item" data-task-id="' + id + '">' +
-            '<div class="task-check" onclick="CaseStageUI.completeTask(' + id + ',\'' + caseId + '\')"></div>' +
-            '<div class="task-text">' + (t.Title || "") + "</div>" +
-            '<span class="task-due">' + due + "</span>" +
-            '<span class="pill">' + priority + "</span>" +
-            "</div>"
-          );
-        })
-        .join("");
-    });
-  }
-
-    var _lastKanban = null; // { caseId, containerId }
 
   function dueClass(dueDate, isDone) {
     if (isDone) return "due-done";
     if (!dueDate) return "due-ok";
     var due = new Date(dueDate);
     var today = new Date();
-    due.setHours(0,0,0,0);
-    today.setHours(0,0,0,0);
+    due.setHours(0, 0, 0, 0);
+    today.setHours(0, 0, 0, 0);
     if (due < today) return "due-over";
     if (due.getTime() === today.getTime()) return "due-today";
     return "due-ok";
@@ -166,33 +104,77 @@ var CaseStageUI = (function () {
     return "kb-priority-medium";
   }
 
+  function escapeHtml(str) {
+    if (!str) return "";
+    return String(str)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
   function taskCardHtml(t) {
     var id = t.ID || t.Id;
     var isDone = t.TaskStatus === "Done";
     var due = t.DueDate
       ? new Date(t.DueDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })
       : "—";
+    var assignee = t.AssignedToDisplay || "";
+    var desc = t.Description || "";
+    if (desc.length > 120) desc = desc.substring(0, 117) + "…";
 
     return (
-      '<div class="kb-card' + (isDone ? " done" : "") + '" data-task-id="' + id + '">' +
-        '<div class="kb-card-top">' +
-          '<div class="task-check' + (isDone ? " done" : "") + '"' +
-            (isDone ? "" : ' onclick="CaseStageUI.completeTask(' + id + ',\'' + t.CaseID + '\')"') +
-            '>' + (isDone ? "✓" : "") + '</div>' +
-          '<div class="task-text' + (isDone ? " done" : "") + '">' + (t.Title || "") + '</div>' +
-        '</div>' +
-        '<div class="kb-card-meta">' +
-          '<span class="kb-priority ' + priorityClass(t.Priority) + '">' + (t.Priority || "Medium") + '</span>' +
-          '<span class="task-due ' + dueClass(t.DueDate, isDone) + '">' + due + '</span>' +
-        '</div>' +
-      '</div>'
+      '<div class="kb-card' +
+      (isDone ? " done" : "") +
+      '" data-task-id="' +
+      id +
+      '" draggable="true">' +
+      '<div class="kb-card-top">' +
+      '<div class="task-check' +
+      (isDone ? " done" : "") +
+      '"' +
+      (isDone
+        ? ""
+        : ' onclick="event.stopPropagation();CaseStageUI.completeTask(' +
+          id +
+          ",'" +
+          escapeHtml(t.CaseID || "") +
+          "')\"") +
+      ">" +
+      (isDone ? "✓" : "") +
+      "</div>" +
+      '<div class="task-text' +
+      (isDone ? " done" : "") +
+      '">' +
+      escapeHtml(t.Title || "") +
+      "</div>" +
+      "</div>" +
+      (desc
+        ? '<div class="kb-card-desc">' + escapeHtml(desc) + "</div>"
+        : "") +
+      '<div class="kb-card-meta">' +
+      '<span class="kb-priority ' +
+      priorityClass(t.Priority) +
+      '">' +
+      escapeHtml(t.Priority || "Medium") +
+      "</span>" +
+      '<span class="task-due ' +
+      dueClass(t.DueDate, isDone) +
+      '">' +
+      due +
+      "</span>" +
+      "</div>" +
+      (assignee
+        ? '<div class="kb-card-assignee">👤 ' + escapeHtml(assignee) + "</div>"
+        : "") +
+      '<div class="kb-card-status">' +
+      escapeHtml(t.TaskStatus || "Open") +
+      (t.IsAutoCreated ? " · auto" : " · manual") +
+      "</div>" +
+      "</div>"
     );
   }
 
-  /**
-   * Render a per-case Kanban board: one column per CASE_STAGES entry,
-   * cards = this case's tasks in that stage.
-   */
   function renderKanban(caseId, containerId, currentStage) {
     containerId = containerId || "caseKanbanBoard";
     var container = document.getElementById(containerId);
@@ -204,21 +186,25 @@ var CaseStageUI = (function () {
     _lastKanban = { caseId: caseId, containerId: containerId, currentStage: currentStage };
 
     if (!window.CaseTaskService || typeof CaseTaskService.getAllTasksForCase !== "function") {
-      container.innerHTML = '<div style="padding:12px;color:#dc2626">CaseTaskService is not loaded — cannot render Kanban.</div>';
+      container.innerHTML =
+        '<div style="padding:12px;color:#dc2626">CaseTaskService is not loaded — cannot render Kanban.</div>';
       return;
     }
 
     var stages = window.CASE_STAGES || [];
     if (!stages.length) {
-      container.innerHTML = '<div style="padding:12px;color:#dc2626">CASE_STAGES is empty — check taskTemplate.js is loaded.</div>';
+      container.innerHTML =
+        '<div style="padding:12px;color:#dc2626">CASE_STAGES is empty — check taskTemplate.js is loaded.</div>';
       return;
     }
 
-    container.innerHTML = '<div style="padding:12px;color:#94a3b8;font-size:13px">Loading tasks…</div>';
+    container.innerHTML =
+      '<div style="padding:12px;color:#94a3b8;font-size:13px">Loading tasks…</div>';
 
     CaseTaskService.getAllTasksForCase(caseId, function (err, tasks) {
       if (err) {
-        container.innerHTML = '<div style="padding:12px;color:#dc2626">Could not load tasks: ' + err + '</div>';
+        container.innerHTML =
+          '<div style="padding:12px;color:#dc2626">Could not load tasks: ' + err + "</div>";
         return;
       }
 
@@ -228,27 +214,55 @@ var CaseStageUI = (function () {
         (byStage[s] = byStage[s] || []).push(t);
       });
 
-      container.innerHTML = stages.map(function (stage) {
-        var stageTasks = byStage[stage] || [];
-        var openCount = stageTasks.filter(function (t) { return t.TaskStatus !== "Done"; }).length;
-        var isCurrent = stage === currentStage;
+      container.innerHTML = stages
+        .map(function (stage) {
+          var stageTasks = byStage[stage] || [];
+          var openCount = stageTasks.filter(function (t) {
+            return t.TaskStatus !== "Done";
+          }).length;
+          var isCurrent = stage === currentStage;
 
-        var cardsHtml = stageTasks.length
-          ? stageTasks.map(taskCardHtml).join("")
-          : '<div class="kb-empty">No tasks — drop here</div>';
+          var cardsHtml = stageTasks.length
+            ? stageTasks.map(taskCardHtml).join("")
+            : '<div class="kb-empty">No tasks — drop here</div>';
 
-        return (
-          '<div class="kb-col' + (isCurrent ? " current" : "") + '" data-stage="' + stage + '">' +
+          return (
+            '<div class="kb-col' +
+            (isCurrent ? " current" : "") +
+            '" data-stage="' +
+            stage +
+            '">' +
             '<div class="kb-col-hdr">' +
-              '<span>' + stage + '</span>' +
-              '<span class="kb-count">' + openCount + '/' + stageTasks.length + '</span>' +
-            '</div>' +
-            '<div class="kb-col-body" data-stage="' + stage + '">' + cardsHtml + '</div>' +
-          '</div>'
-        );
-      }).join("");
+            "<span>" +
+            stage +
+            "</span>" +
+            '<span class="kb-count">' +
+            openCount +
+            "/" +
+            stageTasks.length +
+            "</span>" +
+            "</div>" +
+            '<div class="kb-col-body" data-stage="' +
+            stage +
+            '">' +
+            cardsHtml +
+            "</div>" +
+            
+            "</div>"
+          );
+        })
+        .join("");
 
       bindKanbanDragDrop(container, caseId);
+      bindAddTaskButtons(container, caseId);
+    });
+  }
+
+  function bindAddTaskButtons(container, caseId) {
+    container.querySelectorAll(".kb-add-task").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        openNewTaskModal(caseId, btn.getAttribute("data-stage"));
+      });
     });
   }
 
@@ -286,51 +300,180 @@ var CaseStageUI = (function () {
         var newStage = body.getAttribute("data-stage");
         if (!taskId || !newStage) return;
 
-        if (!CaseTaskService.moveTaskToStage) {
-          // fallback: update Stage field directly
-          $spcontext.updateItems(
-            [{ ID: parseInt(taskId, 10), Stage: newStage }],
-            CaseTaskService.getTasksListName(),
-            function () {
-              if (window.CaseStageUI) {
-                CaseStageUI.renderKanban(caseId, container.id, _lastKanban && _lastKanban.currentStage);
-              }
-              if (MainApplication.notyf) MainApplication.notyf.success("Moved to " + newStage);
-            },
-            function (sender, args) {
-              var msg = (args && args.get_message && args.get_message()) || "Move failed";
-              globalDefinitions.HandlerError(msg, false);
-            }
-          );
-          return;
-        }
+        var root = document.getElementById("caseDetailRoot");
+        var caseListId = root
+          ? parseInt(root.getAttribute("data-case-list-id"), 10)
+          : undefined;
+        var appCaseId = root ? root.getAttribute("data-case-id") : caseId;
 
-        CaseTaskService.moveTaskToStage(parseInt(taskId, 10), newStage, function (err) {
-          if (err) {
-            globalDefinitions.HandlerError("Could not move task: " + err, false);
-            return;
+        CaseTaskService.moveTaskToStage(
+          parseInt(taskId, 10),
+          newStage,
+          function (err, result) {
+            if (err) {
+              globalDefinitions.HandlerError("Could not move task: " + err, false);
+              return;
+            }
+
+            // Reflect CASESLIST CurrentStage in header
+            if (result && result.caseStageUpdated && root) {
+              root.setAttribute("data-current-stage", newStage);
+              $("#caseHeaderStage").text(newStage);
+              var sel = document.getElementById("case_next_stage");
+              if (sel) sel.value = newStage;
+            }
+
+            var msg = "Moved to " + newStage;
+            if (result && result.caseStageUpdated) {
+              msg += " (case stage updated)";
+            } else if (result && result.caseStageWarning) {
+              msg += " (case stage warning: " + result.caseStageWarning + ")";
+            }
+            if (MainApplication.notyf) MainApplication.notyf.success(msg);
+
+            renderKanban(
+              caseId,
+              container.id,
+              (root && root.getAttribute("data-current-stage")) || newStage
+            );
+          },
+          {
+            alsoUpdateCaseStage: true,
+            CaseID: appCaseId,
+            CaseListItemId: caseListId
           }
-          if (MainApplication.notyf) MainApplication.notyf.success("Moved to " + newStage);
-          renderKanban(caseId, container.id, _lastKanban && _lastKanban.currentStage);
-        });
+        );
       });
     });
   }
-  
+
+  function ensureNewTaskModal() {
+    if (document.getElementById("newTaskModal")) return;
+
+    var html =
+      '<div id="newTaskModal" class="kb-modal-overlay" style="display:none">' +
+      '<div class="kb-modal">' +
+      '<div class="kb-modal-hdr">' +
+      "<h3>New task</h3>" +
+      '<button type="button" class="kb-modal-close" id="newTaskModalClose">×</button>' +
+      "</div>" +
+      '<div class="kb-modal-body">' +
+      '<label class="kb-field"><span>Title *</span>' +
+      '<input type="text" id="nt_title" placeholder="Task title" /></label>' +
+      '<label class="kb-field"><span>Stage</span>' +
+      '<select id="nt_stage"></select></label>' +
+      '<label class="kb-field"><span>Priority</span>' +
+      '<select id="nt_priority">' +
+      '<option>High</option><option selected>Medium</option><option>Low</option>' +
+      "</select></label>" +
+      '<label class="kb-field"><span>Assign to (email)</span>' +
+      '<input type="text" id="nt_assignee" placeholder="user@domain.com" /></label>' +
+      '<label class="kb-field"><span>Due date</span>' +
+      '<input type="date" id="nt_due" /></label>' +
+      '<label class="kb-field"><span>Description / comment</span>' +
+      '<textarea id="nt_desc" rows="3" placeholder="Details…"></textarea></label>' +
+      "</div>" +
+      '<div class="kb-modal-ftr">' +
+      '<button type="button" class="btn btn-secondary btn-sm" id="newTaskModalCancel">Cancel</button>' +
+      '<button type="button" class="btn btn-primary btn-sm" id="newTaskModalSave">Create task</button>' +
+      "</div>" +
+      "</div></div>";
+
+    document.body.insertAdjacentHTML("beforeend", html);
+
+    document.getElementById("newTaskModalClose").onclick = closeNewTaskModal;
+    document.getElementById("newTaskModalCancel").onclick = closeNewTaskModal;
+    document.getElementById("newTaskModalSave").onclick = saveNewTask;
+  }
+
+  function openNewTaskModal(caseId, defaultStage) {
+    ensureNewTaskModal();
+    var modal = document.getElementById("newTaskModal");
+    modal.setAttribute("data-case-id", caseId);
+
+    var stageSel = document.getElementById("nt_stage");
+    var stages = window.CASE_STAGES || [];
+    stageSel.innerHTML = stages
+      .map(function (s) {
+        var sel = s === defaultStage ? " selected" : "";
+        return '<option value="' + s + '"' + sel + ">" + s + "</option>";
+      })
+      .join("");
+
+    document.getElementById("nt_title").value = "";
+    document.getElementById("nt_priority").value = "Medium";
+    document.getElementById("nt_assignee").value = "";
+    document.getElementById("nt_due").value = "";
+    document.getElementById("nt_desc").value = "";
+
+    modal.style.display = "flex";
+    setTimeout(function () {
+      document.getElementById("nt_title").focus();
+    }, 50);
+  }
+
+  function closeNewTaskModal() {
+    var modal = document.getElementById("newTaskModal");
+    if (modal) modal.style.display = "none";
+  }
+
+  function saveNewTask() {
+    var modal = document.getElementById("newTaskModal");
+    var caseId = modal.getAttribute("data-case-id");
+    var title = (document.getElementById("nt_title").value || "").trim();
+    if (!title) {
+      globalDefinitions.HandlerError("Title is required", false);
+      return;
+    }
+
+    var root = document.getElementById("caseDetailRoot");
+    var payload = {
+      CaseID: caseId,
+      Title: title,
+      Stage: document.getElementById("nt_stage").value,
+      Priority: document.getElementById("nt_priority").value,
+      AssignedTo: (document.getElementById("nt_assignee").value || "").trim() || undefined,
+      Description: (document.getElementById("nt_desc").value || "").trim() || undefined,
+      DueDate: document.getElementById("nt_due").value || undefined,
+      ApplicationType: root ? root.getAttribute("data-app-type") : ""
+    };
+
+    globalDefinitions.callLoader();
+    CaseTaskService.createManualTask(payload, function (err) {
+      globalDefinitions.closeLoader();
+      if (err) {
+        globalDefinitions.HandlerError("Could not create task: " + err, false);
+        return;
+      }
+      closeNewTaskModal();
+      if (MainApplication.notyf) MainApplication.notyf.success("Task created");
+      var stage =
+        (root && root.getAttribute("data-current-stage")) ||
+        (_lastKanban && _lastKanban.currentStage) ||
+        payload.Stage;
+      renderKanban(caseId, "caseKanbanBoard", stage);
+    });
+  }
+
   function completeTask(taskId, caseId) {
     CaseTaskService.completeTask(taskId, function (err) {
       if (err) {
-        if (window.showToast) showToast("Could not complete task", "error");
+        if (MainApplication.notyf) MainApplication.notyf.error("Could not complete task");
         return;
       }
-      if (window.showToast) showToast("Task completed", "success");
-      reloadTasks(caseId);
-      if (_lastKanban && _lastKanban.caseId === caseId) {
-        renderKanban(caseId, _lastKanban.containerId,
-          document.getElementById("caseDetailRoot") &&
-          document.getElementById("caseDetailRoot").getAttribute("data-current-stage"));
-      }
+      if (MainApplication.notyf) MainApplication.notyf.success("Task completed");
+      var stage =
+        document.getElementById("caseDetailRoot") &&
+        document.getElementById("caseDetailRoot").getAttribute("data-current-stage");
+      renderKanban(caseId, _lastKanban && _lastKanban.containerId, stage);
     });
+  }
+
+  function reloadTasks(caseId) {
+    var stage =
+      document.getElementById("caseDetailRoot") &&
+      document.getElementById("caseDetailRoot").getAttribute("data-current-stage");
+    renderKanban(caseId, "caseKanbanBoard", stage);
   }
 
   return {
@@ -339,7 +482,8 @@ var CaseStageUI = (function () {
     advanceWithData: advanceWithData,
     reloadTasks: reloadTasks,
     completeTask: completeTask,
-    renderKanban: renderKanban
+    renderKanban: renderKanban,
+    openNewTaskModal: openNewTaskModal
   };
 })();
 
