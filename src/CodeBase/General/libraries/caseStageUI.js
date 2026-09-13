@@ -320,6 +320,13 @@ var CaseStageUI = (function () {
             } else if (result && result.caseStageWarning) {
               msg += " (case stage warning: " + result.caseStageWarning + ")";
             }
+            if (result && result.caseStatusUpdated) {
+              msg += " — Status set to " + result.caseStatus;
+              if (root) {
+                root.setAttribute("data-current-stage", result.caseStage || newStage);
+                $("#caseHeaderStage").text(result.caseStage || newStage);
+              }
+            }
             if (MainApplication.notyf) MainApplication.notyf.success(msg);
 
             renderKanban(

@@ -90,6 +90,35 @@ var CaseTaskService = (function () {
     return key;
   }
 
+
+  /**
+   * Extract an email/login usable for FieldUserValue from mixed person shapes.
+   */
+  function resolvePersonEmail(value, fallback) {
+    if (value && typeof value === "object") {
+      try {
+        if (value.get_email && value.get_email()) return value.get_email();
+      } catch (e) {}
+      try {
+        if (value.get_lookupValue && String(value.get_lookupValue()).indexOf("@") !== -1) {
+          return value.get_lookupValue();
+        }
+      } catch (e) {}
+      if (value.Email) return value.Email;
+      if (value.email) return value.email;
+      if (value.Login) return value.Login;
+      if (value.login) return value.login;
+      if (value.value && String(value.value).indexOf("@") !== -1) return value.value;
+    }
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+    if (fallback && typeof fallback === "string" && fallback.trim()) {
+      return fallback.trim();
+    }
+    return "";
+  }
+
   function createTasksForStage(context, callback) {
     callback = callback || function () {};
 
@@ -115,11 +144,23 @@ var CaseTaskService = (function () {
 
     var now = new Date();
     var items = templates.map(function (t) {
-      var assignee = resolveAssignee(t.AssignToRole, context);
+      var assigneeRaw =
+        typeof resolveAssignee === "function"
+          ? resolveAssignee(t.AssignToRole, context)
+          : context.Adviser;
+      // Prefer explicit email from context (AdviserName / Initiator), then person object
+      var assigneeEmail =
+        resolvePersonEmail(assigneeRaw, null) ||
+        resolvePersonEmail(context.Adviser, null) ||
+        resolvePersonEmail(context.AdviserName, null) ||
+        resolvePersonEmail(context.Initiator, null) ||
+        (CurrentUserProperties && CurrentUserProperties.email) ||
+        "";
+
       var title = applyTaskTokens(t.TaskTitle, {
         Client: context.Client,
         CaseID: context.CaseID,
-        Adviser: context.AdviserName || "",
+        Adviser: context.AdviserName || assigneeEmail || "",
         Stage: context.Stage
       });
 
@@ -134,8 +175,8 @@ var CaseTaskService = (function () {
         Priority: t.Priority || "Medium"
       };
 
-      if (assignee && typeof assignee === "string" && assignee.indexOf("@") !== -1) {
-        item.AssignedTo = toFieldUserValue(assignee);
+      if (assigneeEmail) {
+        item.AssignedTo = toFieldUserValue(assigneeEmail);
       }
 
       if (t.DueInDays != null) {
@@ -450,6 +491,94 @@ var CaseTaskService = (function () {
    * options (optional): { alsoUpdateCaseStage: true, CaseID, CaseListItemId }
    * When alsoUpdateCaseStage is true, CASESLIST.CurrentStage is set to newStage.
    */
+
+  /**
+   * If every task for the case is in "Completion" or every task is in "Case Closed",
+   * update CASESLIST.Status (and CurrentStage) accordingly.
+   * Status values: "Completed" for Completion, "Case Closed" for Case Closed.
+   */
+  function maybeSyncCaseStatusFromTasks(caseId, caseListItemId, callback) {
+    callback = callback || function () {};
+    if (!caseId) {
+      callback({});
+      return;
+    }
+
+    getAllTasksForCase(caseId, function (err, tasks) {
+      if (err || !tasks || !tasks.length) {
+        callback({});
+        return;
+      }
+
+      var stages = tasks.map(function (t) { return t.Stage || ""; });
+      var allCompletion = stages.every(function (s) { return s === "Completion"; });
+      var allClosed = stages.every(function (s) { return s === "Case Closed"; });
+
+      if (!allCompletion && !allClosed) {
+        callback({});
+        return;
+      }
+
+      var newStatus = allClosed ? "Case Closed" : "Completed";
+      var newStage = allClosed ? "Case Closed" : "Completion";
+      var casesList = getCasesListName();
+
+      function applyUpdate(itemId) {
+        if (!itemId) {
+          callback({});
+          return;
+        }
+        var updateObj = {
+          ID: itemId,
+          Status: newStatus,
+          CurrentStage: newStage
+        };
+        console.log("[CaseTaskService] all tasks in", newStage, "→ Status =", newStatus);
+        $spcontext.updateItems(
+          [updateObj],
+          casesList,
+          function () {
+            callback({
+              caseStatusUpdated: true,
+              caseStatus: newStatus,
+              caseStage: newStage
+            });
+          },
+          function (sender, args, meta) {
+            console.warn("Status sync failed", spFailToMessage(sender, args, meta));
+            callback({ caseStatusWarning: spFailToMessage(sender, args, meta) });
+          }
+        );
+      }
+
+      if (caseListItemId) {
+        applyUpdate(parseInt(caseListItemId, 10));
+      } else {
+        var caml =
+          "<View><Query><Where>" +
+          "<Eq><FieldRef Name='CaseID'/><Value Type='Text'>" +
+          caseId +
+          "</Value></Eq>" +
+          "</Where></Query></View>";
+        $spcontext.getItem(
+          casesList,
+          caml,
+          function (coll) {
+            var count = coll && coll.get_count ? coll.get_count() : 0;
+            if (!count) {
+              callback({});
+              return;
+            }
+            applyUpdate(coll.getItemAtIndex(0).get_id());
+          },
+          function () {
+            callback({});
+          }
+        );
+      }
+    });
+  }
+
   function moveTaskToStage(taskId, newStage, callback, options) {
     callback = callback || function () {};
     options = options || {};
@@ -472,9 +601,21 @@ var CaseTaskService = (function () {
       [{ ID: id, Stage: newStage }],
       listName,
       function () {
+        function finish(extra) {
+          extra = extra || {};
+          // After any move, if ALL tasks are in Completion or Case Closed → update Status
+          maybeSyncCaseStatusFromTasks(options.CaseID, options.CaseListItemId, function (statusResult) {
+            callback(null, Object.assign({
+              list: listName,
+              id: id,
+              stage: newStage
+            }, extra, statusResult || {}));
+          });
+        }
+
         if (!options.alsoUpdateCaseStage) {
           console.log("[CaseTaskService] moveTaskToStage OK (task only)");
-          callback(null, { list: listName, id: id, stage: newStage });
+          finish({});
           return;
         }
 
@@ -484,26 +625,16 @@ var CaseTaskService = (function () {
             CaseID: options.CaseID,
             CaseListItemId: options.CaseListItemId,
             Stage: newStage,
-            skipTasks: true // don't auto-create template tasks on drag
+            skipTasks: true
           },
           function (err) {
             if (err) {
               console.warn("Task moved but CASESLIST CurrentStage failed:", err);
-              callback(null, {
-                list: listName,
-                id: id,
-                stage: newStage,
-                caseStageWarning: formatError(err)
-              });
+              finish({ caseStageWarning: formatError(err) });
               return;
             }
             console.log("[CaseTaskService] moveTaskToStage OK (task + CASESLIST)");
-            callback(null, {
-              list: listName,
-              id: id,
-              stage: newStage,
-              caseStageUpdated: true
-            });
+            finish({ caseStageUpdated: true });
           }
         );
       },

@@ -1,5 +1,4 @@
 import * as React from "react";
-import ClientButton from "../../../../Global/ClientButton";
 
 require("casedetail");
 require("caseTaskService");
@@ -29,16 +28,9 @@ export default class CaseDetail extends React.Component<{}, {}> {
             </p>
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-            <select id="case_next_stage" />
-            <ClientButton
-              clax="btn btn-primary btn-sm"
-              func="CaseDetailComponent.advanceStage"
-            >
-              Advance Stage
-            </ClientButton>
             <button
               type="button"
-              className="btn btn-secondary btn-sm"
+              className="btn btn-primary btn-sm"
               onClick={() => {
                 const root = document.getElementById("caseDetailRoot");
                 const caseId = root && root.getAttribute("data-case-id");
