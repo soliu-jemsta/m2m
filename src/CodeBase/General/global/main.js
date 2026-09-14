@@ -715,24 +715,8 @@ MainApplication.pendingRequests = function () {
   var extraProperties = {
     merge: true,
     data: [
-      "ID",
-      "Title",
-      "WorkflowRequestID",
-      "Current_Approver",
-      "Current_Approver_Code",
-      "Approval_Status",
-      "Created",
-      "InitiatorEmailAddress",
-      "InitiatorLogin",
-      "Transaction_History",
-      "ReturnForCorrection",
-      "Modified",
-      "PendingUserEmail",
-      "PendingUserLogin",
-      "Lender", "Adviser", "Client",
-      "ApplicationType", "LoanAmountRequired",
-      "Year",
-      "Month",
+      "ID", "Title", "Adviser", "Client", "Modified", "Status", "ApplicationType",
+      "CaseID", "CurrentStage"
     ],
   };
   $spcontext.getListToItems(

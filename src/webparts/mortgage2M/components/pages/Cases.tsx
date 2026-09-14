@@ -20,8 +20,7 @@ const MORTGAGE_COLUMNS: ColumnDef[] = [
   { label: "Client(s)", bind: "Client" },
   { label: "Adviser", bind: "Adviser" },
   { label: "Type", bind: "ApplicationType" },
-  { label: "Current Stage", bind: "CurrentStage" },
-  { label: "Action", bind: "Modified" },
+  { label: "Status", bind: "Status" },
 ];
 
 const P4L_COLUMNS: ColumnDef[] = [
@@ -30,8 +29,7 @@ const P4L_COLUMNS: ColumnDef[] = [
   { label: "Client(s)", bind: "Client" },
   { label: "Adviser", bind: "Adviser" },
   { label: "Type", bind: "ApplicationType" },
-  { label: "Current Stage", bind: "CurrentStage" },
-  { label: "Action", bind: "Modified" },
+  { label: "Status", bind: "Status" },
 ];
 
 const GI_COLUMNS: ColumnDef[] = [
@@ -40,8 +38,7 @@ const GI_COLUMNS: ColumnDef[] = [
   { label: "Client(s)", bind: "Client" },
   { label: "Adviser", bind: "Adviser" },
   { label: "Type", bind: "ApplicationType" },
-  { label: "Current Stage", bind: "CurrentStage" },
-  { label: "Action", bind: "Modified" },
+  { label: "Status", bind: "Status" },
 ];
 
 export default class Cases extends React.Component<{}, {}> {

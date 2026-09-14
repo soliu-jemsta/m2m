@@ -30,12 +30,19 @@ export default class CaseDetail extends React.Component<{}, {}> {
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
             <button
               type="button"
+              id="btnNewTask"
               className="btn btn-primary btn-sm"
               onClick={() => {
                 const root = document.getElementById("caseDetailRoot");
                 const caseId = root && root.getAttribute("data-case-id");
                 const stage =
                   (root && root.getAttribute("data-current-stage")) || "Lead";
+                if (
+                  stage === "Completion" ||
+                  stage === "Case Closed"
+                ) {
+                  return;
+                }
                 if (caseId && (window as any).CaseStageUI) {
                   (window as any).CaseStageUI.openNewTaskModal(caseId, stage);
                 }

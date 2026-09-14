@@ -91,6 +91,9 @@ function whenCaseDetailLoaded() {
 					}
 					if (typeof CaseStageUI.renderKanban === "function") {
 						CaseStageUI.renderKanban(caseItem.CaseID || caseId, "caseKanbanBoard", stage);
+					}
+					if (typeof CaseStageUI.updateNewTaskButtonState === "function") {
+						CaseStageUI.updateNewTaskButtonState(stage);
 					} else {
 						console.error("[CaseDetail] CaseStageUI.renderKanban is missing — update caseStageUI.js export");
 						var kb = document.getElementById("caseKanbanBoard");

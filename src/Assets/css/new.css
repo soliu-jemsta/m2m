@@ -1,3 +1,4 @@
+
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
   --sidebar-w:230px;
@@ -575,3 +576,37 @@ tbody td:first-child{color:var(--text);font-weight:600}
 .kb-field{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--text2)}
 .kb-field input,.kb-field select,.kb-field textarea{padding:8px 10px;border:1px solid var(--border,#e2e8f0);border-radius:8px;font-size:13px;background:var(--surface,#fff);color:var(--text)}
 .kb-field textarea{resize:vertical;min-height:70px}
+
+
+/* Terminal stages — colour + locked cards */
+.kb-col-completion{
+  background: #ecfdf5;
+  border-color: #6ee7b7;
+}
+.kb-col-completion.current{
+  border-color: #10b981;
+  box-shadow: 0 0 0 1px #10b981;
+}
+.kb-col-completion .kb-col-hdr{
+  background: #d1fae5;
+  color: #065f46;
+}
+.kb-col-closed{
+  background: #fef2f2;
+  border-color: #fca5a5;
+}
+.kb-col-closed.current{
+  border-color: #ef4444;
+  box-shadow: 0 0 0 1px #ef4444;
+}
+.kb-col-closed .kb-col-hdr{
+  background: #fee2e2;
+  color: #991b1b;
+}
+.kb-card.kb-locked{
+  cursor: not-allowed;
+  opacity: 0.9;
+}
+.kb-card.kb-locked:hover{
+  cursor: not-allowed;
+}

@@ -113,9 +113,32 @@ var CaseStageUI = (function () {
       .replace(/"/g, "&quot;");
   }
 
+  function isLockedStage(stage) {
+    return stage === "Completion" || stage === "Case Closed";
+  }
+
+  function updateNewTaskButtonState(stage) {
+    var btn = document.getElementById("btnNewTask");
+    if (!btn) return;
+    var locked = isLockedStage(stage);
+    btn.disabled = locked;
+    if (locked) {
+      btn.classList.add("disabled");
+      btn.setAttribute("title", "Cannot add tasks when case is " + stage);
+      btn.style.opacity = "0.5";
+      btn.style.pointerEvents = "none";
+    } else {
+      btn.classList.remove("disabled");
+      btn.removeAttribute("title");
+      btn.style.opacity = "";
+      btn.style.pointerEvents = "";
+    }
+  }
+
   function taskCardHtml(t) {
     var id = t.ID || t.Id;
     var isDone = t.TaskStatus === "Done";
+    var locked = isLockedStage(t.Stage);
     var due = t.DueDate
       ? new Date(t.DueDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })
       : "—";
@@ -126,9 +149,14 @@ var CaseStageUI = (function () {
     return (
       '<div class="kb-card' +
       (isDone ? " done" : "") +
+      (locked ? " kb-locked" : "") +
       '" data-task-id="' +
       id +
-      '" draggable="true">' +
+      '" data-stage="' +
+      escapeHtml(t.Stage || "") +
+      '"' +
+      (locked ? ' draggable="false"' : ' draggable="true"') +
+      '>' +
       '<div class="kb-card-top">' +
       '<div class="task-check' +
       (isDone ? " done" : "") +
@@ -184,6 +212,7 @@ var CaseStageUI = (function () {
     }
 
     _lastKanban = { caseId: caseId, containerId: containerId, currentStage: currentStage };
+    updateNewTaskButtonState(currentStage);
 
     if (!window.CaseTaskService || typeof CaseTaskService.getAllTasksForCase !== "function") {
       container.innerHTML =
@@ -226,9 +255,15 @@ var CaseStageUI = (function () {
             ? stageTasks.map(taskCardHtml).join("")
             : '<div class="kb-empty">No tasks — drop here</div>';
 
+          var colExtra = "";
+          if (stage === "Completion") colExtra = " kb-col-completion";
+          else if (stage === "Case Closed") colExtra = " kb-col-closed";
+          if (isLockedStage(stage)) colExtra += " kb-col-locked";
+
           return (
             '<div class="kb-col' +
             (isCurrent ? " current" : "") +
+            colExtra +
             '" data-stage="' +
             stage +
             '">' +
@@ -260,6 +295,11 @@ var CaseStageUI = (function () {
   function bindKanbanDragDrop(container, caseId) {
     var cards = container.querySelectorAll(".kb-card[data-task-id]");
     cards.forEach(function (card) {
+      var stage = card.getAttribute("data-stage") || "";
+      if (isLockedStage(stage) || card.classList.contains("kb-locked")) {
+        card.setAttribute("draggable", "false");
+        return; // cannot drag out of Completion / Case Closed
+      }
       card.setAttribute("draggable", "true");
       card.addEventListener("dragstart", function (e) {
         e.dataTransfer.setData("text/plain", card.getAttribute("data-task-id"));
@@ -386,6 +426,20 @@ var CaseStageUI = (function () {
   }
 
   function openNewTaskModal(caseId, defaultStage) {
+    var root = document.getElementById("caseDetailRoot");
+    var stage =
+      defaultStage ||
+      (root && root.getAttribute("data-current-stage")) ||
+      "Lead";
+    if (isLockedStage(stage)) {
+      if (MainApplication.notyf) {
+        MainApplication.notyf.error("Cannot add tasks when case is " + stage);
+      } else {
+        globalDefinitions.HandlerError("Cannot add tasks when case is " + stage, false);
+      }
+      return;
+    }
+
     ensureNewTaskModal();
     var modal = document.getElementById("newTaskModal");
     modal.setAttribute("data-case-id", caseId);
@@ -550,7 +604,8 @@ var CaseStageUI = (function () {
     reloadTasks: reloadTasks,
     completeTask: completeTask,
     renderKanban: renderKanban,
-    openNewTaskModal: openNewTaskModal
+    openNewTaskModal: openNewTaskModal,
+    updateNewTaskButtonState: updateNewTaskButtonState
   };
 })();
 

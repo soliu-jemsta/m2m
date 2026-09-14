@@ -40,9 +40,9 @@ var CATEGORY_TABLE_MAP = {
 // manualTable's settings skips that DOM scan entirely, so each category only
 // ever renders its own columns.
 var CATEGORY_CONTROLS = {
-    MORTGAGE: ["CaseID", "Client", "Adviser", "ApplicationType", "CurrentStage", "Modified"],
-    P4L: ["CaseID", "Client", "Adviser", "ApplicationType", "CurrentStage", "Modified"],
-    GI: ["CaseID", "Client", "Adviser", "ApplicationType", "CurrentStage", "Modified"]
+    MORTGAGE: ["CaseID", "Client", "Adviser", "ApplicationType", "Status"],
+    P4L: ["CaseID", "Client", "Adviser", "ApplicationType", "Status"],
+    GI: ["CaseID", "Client", "Adviser", "ApplicationType", "Status"]
 };
 
 MainApplication.CasesComponent.ApplicationDetails = function () {
@@ -103,10 +103,10 @@ whenCasesLoaded = function () {
         // "InsuranceType": function (valueToEva) {
         //     return valueToEva.InsuranceType || "-";
         // },
-        "Modified": function (valueToEva) {
+        "CaseID": function (valueToEva) {
             var viewStr = `
-                <a href="#/case?itemId=${valueToEva.CaseID}" class="btn btn-sm btn-primary btn-icon">
-                    <i class="fa-solid fa-eye" style="font-size:11px"></i>
+                <a href="#/case?itemId=${valueToEva.CaseID}">
+                    ${valueToEva.CaseID}
                 </a>`;
 
             // var editStr = `
