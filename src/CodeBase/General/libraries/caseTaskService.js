@@ -695,7 +695,10 @@ var CaseTaskService = (function () {
       return;
     }
     var who =
-      (CurrentUserProperties && (CurrentUserProperties.displayName || CurrentUserProperties.email)) ||
+      (CurrentUserProperties &&
+        (CurrentUserProperties.shortName ||
+          CurrentUserProperties.displayName ||
+          CurrentUserProperties.email)) ||
       "User";
     var now = new Date();
     var stamp =

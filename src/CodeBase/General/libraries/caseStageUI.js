@@ -143,12 +143,16 @@ var CaseStageUI = (function () {
       ? new Date(t.DueDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })
       : "—";
     var assignee = t.AssignedToDisplay || "";
-    var desc = t.Description || "";
-    if (desc.length > 100) desc = desc.substring(0, 97) + "…";
+    var fullDesc = t.Description || "";
     var comments = t.Comments || "";
-    var commentCount = comments
-      ? comments.split("\n").filter(function (l) { return l.trim(); }).length
-      : 0;
+    var commentLines = comments
+      ? comments.split("\n").filter(function (l) { return l.trim(); })
+      : [];
+    var commentCount = commentLines.length;
+    var hasExpandable = !!(fullDesc || commentCount);
+
+    var previewDesc = fullDesc;
+    if (previewDesc.length > 100) previewDesc = previewDesc.substring(0, 97) + "…";
 
     var actions = "";
     if (!locked) {
@@ -157,11 +161,38 @@ var CaseStageUI = (function () {
         '<button type="button" class="kb-btn-edit" data-action="edit" title="Edit task">Edit</button>' +
         '<button type="button" class="kb-btn-comment" data-action="comment" title="Add comment">Comment</button>' +
         "</div>";
-    } else if (commentCount || true) {
-      // still allow viewing comments on locked cards via comment button (read + add optional)
+    } else {
       actions =
         '<div class="kb-card-actions">' +
         '<button type="button" class="kb-btn-comment" data-action="comment" title="Comments">Comment</button>' +
+        "</div>";
+    }
+
+    var expandBlock = "";
+    if (hasExpandable) {
+      expandBlock =
+        '<button type="button" class="kb-expand-toggle" data-action="toggle-expand" aria-expanded="false">' +
+        '<span class="kb-expand-label">Show more</span></button>' +
+        '<div class="kb-card-expand" hidden>' +
+        (fullDesc
+          ? '<div class="kb-expand-section"><div class="kb-expand-title">Description</div>' +
+            '<div class="kb-expand-body">' +
+            escapeHtml(fullDesc) +
+            "</div></div>"
+          : "") +
+        (commentCount
+          ? '<div class="kb-expand-section"><div class="kb-expand-title">Comments (' +
+            commentCount +
+            ")</div>" +
+            '<div class="kb-expand-comments">' +
+            commentLines
+              .map(function (l) {
+                return '<div class="kb-comment-line">' + escapeHtml(l) + "</div>";
+              })
+              .join("") +
+            "</div></div>"
+          : '<div class="kb-expand-section"><div class="kb-expand-title">Comments</div>' +
+            '<div class="kb-comment-empty">No comments yet.</div></div>') +
         "</div>";
     }
 
@@ -192,7 +223,10 @@ var CaseStageUI = (function () {
       escapeHtml(t.Title || "") +
       "</div>" +
       "</div>" +
-      (desc ? '<div class="kb-card-desc">' + escapeHtml(desc) + "</div>" : "") +
+      (previewDesc
+        ? '<div class="kb-card-desc">' + escapeHtml(previewDesc) + "</div>"
+        : "") +
+      expandBlock +
       '<div class="kb-card-meta">' +
       '<span class="kb-priority ' +
       priorityClass(t.Priority) +
@@ -329,6 +363,24 @@ var CaseStageUI = (function () {
         var taskCaseId = card.getAttribute("data-case-id") || caseId;
         var task = _tasksById[String(taskId)];
 
+        if (action === "toggle-expand") {
+          var panel = card.querySelector(".kb-card-expand");
+          var label = actionEl.querySelector(".kb-expand-label") || actionEl;
+          if (!panel) return;
+          var open = panel.hasAttribute("hidden");
+          if (open) {
+            panel.removeAttribute("hidden");
+            actionEl.setAttribute("aria-expanded", "true");
+            if (label) label.textContent = "Show less";
+            card.classList.add("kb-expanded");
+          } else {
+            panel.setAttribute("hidden", "");
+            actionEl.setAttribute("aria-expanded", "false");
+            if (label) label.textContent = "Show more";
+            card.classList.remove("kb-expanded");
+          }
+          return;
+        }
         if (action === "complete") {
           if (card.classList.contains("kb-locked")) return;
           if (task && task.TaskStatus === "Done") return;
@@ -360,6 +412,12 @@ var CaseStageUI = (function () {
       card.setAttribute("draggable", "true");
       card.addEventListener("dragstart", function (e) {
         e.dataTransfer.setData("text/plain", card.getAttribute("data-task-id"));
+        e.dataTransfer.setData(
+          "application/x-kb-stage",
+          card.getAttribute("data-stage") || ""
+        );
+        // Some browsers only expose custom types after setData; also stash on element
+        card.setAttribute("data-drag-from-stage", card.getAttribute("data-stage") || "");
         e.dataTransfer.effectAllowed = "move";
         card.classList.add("kb-dragging");
       });
@@ -387,6 +445,23 @@ var CaseStageUI = (function () {
         var taskId = e.dataTransfer.getData("text/plain");
         var newStage = body.getAttribute("data-stage");
         if (!taskId || !newStage) return;
+
+        // Same column drop — cancel, no update
+        var fromStage =
+          e.dataTransfer.getData("application/x-kb-stage") ||
+          (function () {
+            var dragged = container.querySelector(
+              '.kb-card[data-task-id="' + taskId + '"]'
+            );
+            return dragged
+              ? dragged.getAttribute("data-drag-from-stage") ||
+                  dragged.getAttribute("data-stage") ||
+                  ""
+              : "";
+          })();
+        if (fromStage && fromStage === newStage) {
+          return;
+        }
 
         var root = document.getElementById("caseDetailRoot");
         var caseListId = root
