@@ -144,7 +144,26 @@ var CaseStageUI = (function () {
       : "—";
     var assignee = t.AssignedToDisplay || "";
     var desc = t.Description || "";
-    if (desc.length > 120) desc = desc.substring(0, 117) + "…";
+    if (desc.length > 100) desc = desc.substring(0, 97) + "…";
+    var comments = t.Comments || "";
+    var commentCount = comments
+      ? comments.split("\n").filter(function (l) { return l.trim(); }).length
+      : 0;
+
+    var actions = "";
+    if (!locked) {
+      actions =
+        '<div class="kb-card-actions">' +
+        '<button type="button" class="kb-btn-edit" data-action="edit" title="Edit task">Edit</button>' +
+        '<button type="button" class="kb-btn-comment" data-action="comment" title="Add comment">Comment</button>' +
+        "</div>";
+    } else if (commentCount || true) {
+      // still allow viewing comments on locked cards via comment button (read + add optional)
+      actions =
+        '<div class="kb-card-actions">' +
+        '<button type="button" class="kb-btn-comment" data-action="comment" title="Comments">Comment</button>' +
+        "</div>";
+    }
 
     return (
       '<div class="kb-card' +
@@ -154,21 +173,17 @@ var CaseStageUI = (function () {
       id +
       '" data-stage="' +
       escapeHtml(t.Stage || "") +
+      '" data-case-id="' +
+      escapeHtml(t.CaseID || "") +
       '"' +
       (locked ? ' draggable="false"' : ' draggable="true"') +
-      '>' +
+      ">" +
       '<div class="kb-card-top">' +
       '<div class="task-check' +
       (isDone ? " done" : "") +
-      '"' +
-      (isDone
-        ? ""
-        : ' onclick="event.stopPropagation();CaseStageUI.completeTask(' +
-          id +
-          ",'" +
-          escapeHtml(t.CaseID || "") +
-          "')\"") +
-      ">" +
+      '" data-action="complete" title="' +
+      (isDone ? "Completed" : "Mark done") +
+      '">' +
       (isDone ? "✓" : "") +
       "</div>" +
       '<div class="task-text' +
@@ -177,9 +192,7 @@ var CaseStageUI = (function () {
       escapeHtml(t.Title || "") +
       "</div>" +
       "</div>" +
-      (desc
-        ? '<div class="kb-card-desc">' + escapeHtml(desc) + "</div>"
-        : "") +
+      (desc ? '<div class="kb-card-desc">' + escapeHtml(desc) + "</div>" : "") +
       '<div class="kb-card-meta">' +
       '<span class="kb-priority ' +
       priorityClass(t.Priority) +
@@ -198,7 +211,9 @@ var CaseStageUI = (function () {
       '<div class="kb-card-status">' +
       escapeHtml(t.TaskStatus || "Open") +
       (t.IsAutoCreated ? " · auto" : " · manual") +
+      (commentCount ? " · 💬 " + commentCount : "") +
       "</div>" +
+      actions +
       "</div>"
     );
   }
@@ -288,9 +303,51 @@ var CaseStageUI = (function () {
         .join("");
 
       bindKanbanDragDrop(container, caseId);
+      bindCardActions(container, caseId, tasks || []);
     });
   }
 
+
+
+  var _tasksById = {};
+
+  function bindCardActions(container, caseId, tasks) {
+    _tasksById = {};
+    (tasks || []).forEach(function (t) {
+      _tasksById[String(t.ID || t.Id)] = t;
+    });
+
+    container.querySelectorAll(".kb-card[data-task-id]").forEach(function (card) {
+      card.addEventListener("click", function (e) {
+        var actionEl = e.target.closest("[data-action]");
+        if (!actionEl) return;
+        e.preventDefault();
+        e.stopPropagation();
+
+        var action = actionEl.getAttribute("data-action");
+        var taskId = card.getAttribute("data-task-id");
+        var taskCaseId = card.getAttribute("data-case-id") || caseId;
+        var task = _tasksById[String(taskId)];
+
+        if (action === "complete") {
+          if (card.classList.contains("kb-locked")) return;
+          if (task && task.TaskStatus === "Done") return;
+          completeTask(taskId, taskCaseId);
+          return;
+        }
+        if (action === "edit") {
+          if (!task || isLockedStage(task.Stage)) return;
+          openEditTaskModal(task);
+          return;
+        }
+        if (action === "comment") {
+          if (!task) return;
+          openCommentModal(task);
+          return;
+        }
+      });
+    });
+  }
 
   function bindKanbanDragDrop(container, caseId) {
     var cards = container.querySelectorAll(".kb-card[data-task-id]");
@@ -409,7 +466,7 @@ var CaseStageUI = (function () {
       '<option value=""></option></select></label>' +
       '<label class="kb-field"><span>Due date</span>' +
       '<input type="date" id="nt_due" /></label>' +
-      '<label class="kb-field"><span>Description / comment</span>' +
+      '<label class="kb-field"><span>Description</span>' +
       '<textarea id="nt_desc" rows="3" placeholder="Details…"></textarea></label>' +
       "</div>" +
       '<div class="kb-modal-ftr">' +
@@ -576,17 +633,219 @@ var CaseStageUI = (function () {
     });
   }
 
+
+  function ensureEditTaskModal() {
+    if (document.getElementById("editTaskModal")) return;
+    var html =
+      '<div id="editTaskModal" class="kb-modal-overlay" style="display:none">' +
+      '<div class="kb-modal">' +
+      '<div class="kb-modal-hdr"><h3>Edit task</h3>' +
+      '<button type="button" class="kb-modal-close" id="editTaskModalClose">×</button></div>' +
+      '<div class="kb-modal-body">' +
+      '<input type="hidden" id="et_id" />' +
+      '<label class="kb-field"><span>Title *</span><input type="text" id="et_title" /></label>' +
+      '<label class="kb-field"><span>Priority</span><select id="et_priority">' +
+      '<option>High</option><option>Medium</option><option>Low</option></select></label>' +
+      '<label class="kb-field"><span>Assign to</span>' +
+      '<select id="et_assignee" custom-people="et_assignee" class="kb-people-select" style="width:100%">' +
+      '<option value=""></option></select></label>' +
+      '<label class="kb-field"><span>Due date</span><input type="date" id="et_due" /></label>' +
+      '<label class="kb-field"><span>Description</span><textarea id="et_desc" rows="3"></textarea></label>' +
+      '<label class="kb-field"><span>Task status</span><select id="et_status">' +
+      '<option value="Open">Open</option><option value="Done">Done</option>' +
+      '<option value="Cancelled">Cancelled</option></select></label>' +
+      '</div>' +
+      '<div class="kb-modal-ftr">' +
+      '<button type="button" class="btn btn-secondary btn-sm" id="editTaskModalCancel">Cancel</button>' +
+      '<button type="button" class="btn btn-primary btn-sm" id="editTaskModalSave">Save</button>' +
+      '</div></div></div>';
+    document.body.insertAdjacentHTML("beforeend", html);
+    document.getElementById("editTaskModalClose").addEventListener("click", closeEditTaskModal);
+    document.getElementById("editTaskModalCancel").addEventListener("click", closeEditTaskModal);
+    document.getElementById("editTaskModalSave").addEventListener("click", saveEditTask);
+  }
+
+  function openEditTaskModal(task) {
+    ensureEditTaskModal();
+    document.getElementById("et_id").value = task.ID;
+    document.getElementById("et_title").value = task.Title || "";
+    document.getElementById("et_priority").value = task.Priority || "Medium";
+    document.getElementById("et_desc").value = task.Description || "";
+    document.getElementById("et_status").value = task.TaskStatus || "Open";
+    if (task.DueDate) {
+      var d = new Date(task.DueDate);
+      document.getElementById("et_due").value =
+        d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate());
+    } else {
+      document.getElementById("et_due").value = "";
+    }
+    // Assignee select
+    initEditAssigneePicker(task.AssignedToDisplay, task.AssignedTo);
+    document.getElementById("editTaskModal").style.display = "flex";
+  }
+
+  function pad2(n) {
+    return n < 10 ? "0" + n : String(n);
+  }
+
+  function initEditAssigneePicker(displayName, assignedObj) {
+    var $sel = $("#et_assignee");
+    if (!$sel.length) return;
+    var list = (window.MainApplication && MainApplication.advisersList) || [];
+    var currentEmail = "";
+    try {
+      if (assignedObj && assignedObj.get_email) currentEmail = assignedObj.get_email() || "";
+    } catch (e) {}
+    if (!currentEmail && displayName) {
+      // try match by title
+      list.forEach(function (p) {
+        if (p.Title === displayName) currentEmail = p.Email;
+      });
+    }
+    try {
+      if ($sel.data("select2")) $sel.select2("destroy");
+    } catch (e) {}
+    $sel.empty().append('<option value=""></option>');
+    list.forEach(function (p) {
+      if (!p || !p.Email) return;
+      $sel.append($("<option></option>").attr("value", p.Email).text(p.Title || p.Email));
+    });
+    try {
+      $sel.select2({
+        placeholder: "Select adviser",
+        allowClear: true,
+        width: "100%",
+        dropdownParent: $("#editTaskModal .kb-modal")
+      });
+      if (currentEmail) $sel.val(currentEmail).trigger("change");
+    } catch (e2) {
+      if (currentEmail) $sel.val(currentEmail);
+    }
+  }
+
+  function closeEditTaskModal() {
+    var m = document.getElementById("editTaskModal");
+    if (m) m.style.display = "none";
+  }
+
+  function saveEditTask() {
+    var id = parseInt(document.getElementById("et_id").value, 10);
+    var title = (document.getElementById("et_title").value || "").trim();
+    if (!title) {
+      globalDefinitions.HandlerError("Title is required", false);
+      return;
+    }
+    var assignee = ($("#et_assignee").val() || "").trim() || undefined;
+    var payload = {
+      ID: id,
+      Title: title,
+      Priority: document.getElementById("et_priority").value,
+      Description: (document.getElementById("et_desc").value || "").trim(),
+      TaskStatus: document.getElementById("et_status").value,
+      DueDate: document.getElementById("et_due").value || undefined,
+      AssignedTo: assignee
+    };
+    globalDefinitions.callLoader();
+    CaseTaskService.updateTask(payload, function (err) {
+      globalDefinitions.closeLoader();
+      if (err) {
+        globalDefinitions.HandlerError("Could not update task: " + err, false);
+        return;
+      }
+      closeEditTaskModal();
+      if (MainApplication.notyf) MainApplication.notyf.success("Task updated");
+      var root = document.getElementById("caseDetailRoot");
+      var caseId = root && root.getAttribute("data-case-id");
+      var stage = root && root.getAttribute("data-current-stage");
+      renderKanban(caseId, "caseKanbanBoard", stage);
+    });
+  }
+
+  function ensureCommentModal() {
+    if (document.getElementById("commentTaskModal")) return;
+    var html =
+      '<div id="commentTaskModal" class="kb-modal-overlay" style="display:none">' +
+      '<div class="kb-modal">' +
+      '<div class="kb-modal-hdr"><h3>Comments</h3>' +
+      '<button type="button" class="kb-modal-close" id="commentTaskModalClose">×</button></div>' +
+      '<div class="kb-modal-body">' +
+      '<input type="hidden" id="ct_id" />' +
+      '<div id="ct_thread" class="kb-comment-thread"></div>' +
+      '<label class="kb-field"><span>Add a comment</span>' +
+      '<textarea id="ct_new" rows="3" placeholder="Your opinion on this task…"></textarea></label>' +
+      '</div>' +
+      '<div class="kb-modal-ftr">' +
+      '<button type="button" class="btn btn-secondary btn-sm" id="commentTaskModalCancel">Close</button>' +
+      '<button type="button" class="btn btn-primary btn-sm" id="commentTaskModalSave">Post comment</button>' +
+      '</div></div></div>';
+    document.body.insertAdjacentHTML("beforeend", html);
+    document.getElementById("commentTaskModalClose").addEventListener("click", closeCommentModal);
+    document.getElementById("commentTaskModalCancel").addEventListener("click", closeCommentModal);
+    document.getElementById("commentTaskModalSave").addEventListener("click", saveComment);
+  }
+
+  function openCommentModal(task) {
+    ensureCommentModal();
+    document.getElementById("ct_id").value = task.ID;
+    document.getElementById("commentTaskModal").setAttribute("data-existing", task.Comments || "");
+    document.getElementById("ct_new").value = "";
+    var thread = document.getElementById("ct_thread");
+    var lines = (task.Comments || "").split("\n").filter(function (l) { return l.trim(); });
+    if (!lines.length) {
+      thread.innerHTML = '<div class="kb-comment-empty">No comments yet.</div>';
+    } else {
+      thread.innerHTML = lines
+        .map(function (l) {
+          return '<div class="kb-comment-line">' + escapeHtml(l) + "</div>";
+        })
+        .join("");
+    }
+    document.getElementById("commentTaskModal").style.display = "flex";
+  }
+
+  function closeCommentModal() {
+    var m = document.getElementById("commentTaskModal");
+    if (m) m.style.display = "none";
+  }
+
+  function saveComment() {
+    var id = parseInt(document.getElementById("ct_id").value, 10);
+    var textVal = (document.getElementById("ct_new").value || "").trim();
+    if (!textVal) {
+      globalDefinitions.HandlerError("Comment cannot be empty", false);
+      return;
+    }
+    var existing = document.getElementById("commentTaskModal").getAttribute("data-existing") || "";
+    globalDefinitions.callLoader();
+    CaseTaskService.appendComment(id, textVal, existing, function (err, next) {
+      globalDefinitions.closeLoader();
+      if (err) {
+        globalDefinitions.HandlerError("Could not save comment: " + err, false);
+        return;
+      }
+      closeCommentModal();
+      if (MainApplication.notyf) MainApplication.notyf.success("Comment added");
+      var root = document.getElementById("caseDetailRoot");
+      var caseId = root && root.getAttribute("data-case-id");
+      var stage = root && root.getAttribute("data-current-stage");
+      renderKanban(caseId, "caseKanbanBoard", stage);
+    });
+  }
+
   function completeTask(taskId, caseId) {
     CaseTaskService.completeTask(taskId, function (err) {
       if (err) {
-        if (MainApplication.notyf) MainApplication.notyf.error("Could not complete task");
+        globalDefinitions.HandlerError("Could not complete task: " + err, false);
         return;
       }
-      if (MainApplication.notyf) MainApplication.notyf.success("Task completed");
-      var stage =
-        document.getElementById("caseDetailRoot") &&
-        document.getElementById("caseDetailRoot").getAttribute("data-current-stage");
-      renderKanban(caseId, _lastKanban && _lastKanban.containerId, stage);
+      if (MainApplication.notyf) MainApplication.notyf.success("Task marked Done");
+      var root = document.getElementById("caseDetailRoot");
+      var stage = root && root.getAttribute("data-current-stage");
+      renderKanban(
+        caseId || (root && root.getAttribute("data-case-id")),
+        (_lastKanban && _lastKanban.containerId) || "caseKanbanBoard",
+        stage
+      );
     });
   }
 

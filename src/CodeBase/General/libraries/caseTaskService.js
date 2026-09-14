@@ -232,10 +232,7 @@ var CaseTaskService = (function () {
     if (data.Comments) {
       item.Comments = data.Comments;
     }
-    // Prefer Description; also map Comments → Description if only one column exists
-    if (data.Description && !data.Comments) {
-      item.Comments = data.Description;
-    }
+    // Description and Comments are separate — do not mirror them
     if (data.DueDate) {
       item.DueDate = data.DueDate instanceof Date ? data.DueDate : new Date(data.DueDate);
     }
@@ -402,31 +399,26 @@ var CaseTaskService = (function () {
       assigned = it.get_item("AssignedTo");
     } catch (e) {}
     var description = "";
+    var comments = "";
     try {
       description = it.get_item("Description") || "";
     } catch (e) {}
-    if (!description) {
-      try {
-        description = it.get_item("Comments") || "";
-      } catch (e) {}
-    }
-    if (!description) {
-      try {
-        description = it.get_item("Body") || "";
-      } catch (e) {}
-    }
+    try {
+      comments = it.get_item("Comments") || "";
+    } catch (e) {}
 
     return {
       ID: it.get_id(),
       Title: it.get_item("Title"),
       CaseID: it.get_item("CaseID"),
-      TaskStatus: it.get_item("TaskStatus"),
+      TaskStatus: it.get_item("TaskStatus") || "Open",
       Stage: it.get_item("Stage"),
       Priority: it.get_item("Priority"),
       DueDate: it.get_item("DueDate"),
       AssignedTo: assigned,
       AssignedToDisplay: personDisplay(assigned),
       Description: description,
+      Comments: comments,
       IsAutoCreated: (function () {
         try {
           return it.get_item("IsAutoCreated");
@@ -663,9 +655,78 @@ var CaseTaskService = (function () {
     );
   }
 
+
+  function pad2(n) {
+    return n < 10 ? "0" + n : String(n);
+  }
+
+  function updateTask(data, callback) {
+    callback = callback || function () {};
+    if (!data || !data.ID) {
+      callback("Task ID is required");
+      return;
+    }
+    var updateObj = { ID: data.ID };
+    if (data.Title != null) updateObj.Title = data.Title;
+    if (data.Priority != null) updateObj.Priority = data.Priority;
+    if (data.Description != null) updateObj.Description = data.Description;
+    if (data.TaskStatus != null) updateObj.TaskStatus = data.TaskStatus;
+    if (data.DueDate) {
+      updateObj.DueDate = data.DueDate instanceof Date ? data.DueDate : new Date(data.DueDate);
+    }
+    if (data.AssignedTo) {
+      updateObj.AssignedTo = toFieldUserValue(data.AssignedTo);
+    }
+
+    $spcontext.updateItems(
+      [updateObj],
+      getTasksListName(),
+      function () { callback(null); },
+      function (sender, args, meta) {
+        callback(spFailToMessage(sender, args, meta));
+      }
+    );
+  }
+
+  function appendComment(taskId, commentText, existingComments, callback) {
+    callback = callback || function () {};
+    if (!taskId || !commentText) {
+      callback("Task ID and comment text are required");
+      return;
+    }
+    var who =
+      (CurrentUserProperties && (CurrentUserProperties.displayName || CurrentUserProperties.email)) ||
+      "User";
+    var now = new Date();
+    var stamp =
+      now.getFullYear() +
+      "-" +
+      pad2(now.getMonth() + 1) +
+      "-" +
+      pad2(now.getDate()) +
+      " " +
+      pad2(now.getHours()) +
+      ":" +
+      pad2(now.getMinutes());
+    var line = "[" + stamp + "] " + who + ": " + String(commentText).trim();
+    var next = (existingComments || "").trim();
+    next = next ? next + "\n" + line : line;
+
+    $spcontext.updateItems(
+      [{ ID: taskId, Comments: next }],
+      getTasksListName(),
+      function () { callback(null, next); },
+      function (sender, args, meta) {
+        callback(spFailToMessage(sender, args, meta));
+      }
+    );
+  }
+
   return {
     createTasksForStage: createTasksForStage,
     createManualTask: createManualTask,
+    updateTask: updateTask,
+    appendComment: appendComment,
     changeStage: changeStage,
     completeTask: completeTask,
     getOpenTasksForCase: getOpenTasksForCase,
