@@ -696,9 +696,9 @@ MainApplication.pendingRequests = function () {
     },
     {
       operator: "Eq",
-      field: "Approval_Status",
+      field: "Status",
       type: "Text",
-      val: "Pending",
+      val: "Open",
     },
   ];
   // if (MainApplication.isUserAnActor) {

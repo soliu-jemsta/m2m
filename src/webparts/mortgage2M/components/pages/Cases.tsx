@@ -132,6 +132,9 @@ export default class Cases extends React.Component<{}, {}> {
             Pending
           </div>
           <div className="ft ft-status" data-filter="completed">
+            Completed
+          </div>
+          <div className="ft ft-status" data-filter="closed">
             Closed
           </div>
         </div>

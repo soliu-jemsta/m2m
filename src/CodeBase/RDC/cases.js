@@ -12,8 +12,9 @@ var AppRequest;
 
 // Update to match your actual Status choice values
 var CASES_STATUS = {
-    closedStatuses: ["Completed", "Declined"],
-    pendingApprovalStatus: "Open"
+    closedStatus: "Case Closed",
+    pendingApprovalStatus: "Open",
+    completedStatus: "Completed"
 };
 
 // The three category tabs. These values match exactly what's already stored
@@ -225,11 +226,15 @@ MainApplication.CasesComponent.applyFilters = function () {
     var filter = AppRequest.filtersByCategory[category] || "all";
     if (filter === "completed") {
         data = data.filter(function (item) {
-            return CASES_STATUS.closedStatuses.indexOf(item.Status) !== -1;
+            return item.Status === CASES_STATUS.completedStatus;
         });
     } else if (filter === "pending") {
         data = data.filter(function (item) {
             return item.Status === CASES_STATUS.pendingApprovalStatus;
+        });
+    } else if (filter === "closed") {
+        data = data.filter(function (item) {
+            return item.Status === CASES_STATUS.closedStatus;
         });
     }
 

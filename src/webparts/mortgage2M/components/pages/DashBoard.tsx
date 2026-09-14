@@ -1,10 +1,5 @@
 import * as React from "react";
 import { Link } from "react-router-dom";
-// import { NewLoader } from "../../../../Global/NewLoader";
-// import { Link } from "react-router-dom";
-// import ClientButton from "../../../../Global/ClientButton";
-// // import { NewLoader } from "../../../../Global/NewLoader";
-// import IdeaFormSkeleton from "../../../../Global/IdeaFormSkeleton";
 
 require("dashboard");
 
@@ -12,7 +7,6 @@ export default class DashBoard extends React.Component<{}, {}> {
   public render(): React.ReactElement {
     return (
       <>
-        {/* <NewLoader /> */}
         <div className="view active" id="view-dashboard">
           <div className="stat-row">
             <div className="stat-card">
@@ -25,67 +19,88 @@ export default class DashBoard extends React.Component<{}, {}> {
               <div className="stat-value" id="dash-active">
                 —
               </div>
-              <div className="stat-sub">
-                <span className="stat-delta delta-up" id="dash-active-delta" />
-              </div>
+              {/* <div className="stat-sub">
+                <span className="stat-delta" id="dash-active-delta">
+                  Status = Open
+                </span>
+              </div> */}
             </div>
+
             <div className="stat-card">
               <div className="stat-top">
-                <span className="stat-label">Pipeline Value</span>
-                <div className="stat-icon" style={{ background: "#f0fdfa" }}>
-                  💷
-                </div>
-              </div>
-              <div className="stat-value" id="dash-pipeline">
-                —
-              </div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-top">
-                <span className="stat-label">Completions (Jun)</span>
+                <span className="stat-label">Completed</span>
                 <div className="stat-icon" style={{ background: "#f0fdf4" }}>
                   ✅
                 </div>
               </div>
-              <div className="stat-value" id="dash-completions">
+              <div className="stat-value" id="dash-completed">
                 —
               </div>
+              {/* <div className="stat-sub">
+                <span className="stat-delta">Status = Completed</span>
+              </div> */}
             </div>
+
             <div className="stat-card">
               <div className="stat-top">
-                <span className="stat-label">Pending Approvals</span>
+                <span className="stat-label">Closed Cases</span>
                 <div className="stat-icon" style={{ background: "#fef2f2" }}>
+                  🔒
+                </div>
+              </div>
+              <div className="stat-value" id="dash-closed">
+                —
+              </div>
+              {/* <div className="stat-sub">
+                <span className="stat-delta">Status = Case Closed</span>
+              </div> */}
+            </div>
+
+            <div className="stat-card">
+              <div className="stat-top">
+                <span className="stat-label">Pending Tasks</span>
+                <div className="stat-icon" style={{ background: "#fffbeb" }}>
                   ⏳
                 </div>
               </div>
-              <div className="stat-value" id="dash-approvals">
+              <div className="stat-value" id="dash-pending-tasks">
                 —
               </div>
               <div className="stat-sub">
-                <span className="stat-delta delta-down">Needs action</span>
+                <span
+                  className="stat-delta delta-up"
+                  id="dash-pending-badge"
+                  style={{ color: "var(--red, #dc2626)" }}
+                />
               </div>
             </div>
           </div>
+
+          {/* Original layout class: Recent Cases | Activity Feed side-by-side */}
           <div className="two-col">
             <div>
               <div className="section-hdr">
                 <h2>Recent Cases</h2>
-                <Link to="cases" className="link-btn">
+                <Link to="/cases" className="link-btn">
                   View all →
                 </Link>
               </div>
               <div className="card">
-                <div className="table-wrap">
-                  <table>
+                <p
+                  className="norequest"
+                  style={{ display: "none", padding: 16 }}
+                >
+                  No cases found.
+                </p>
+                <div className="threport table-scroll">
+                  <table className="data-table" id="tasktable">
                     <thead>
                       <tr>
                         <th>S/N</th>
-                        <th speed-table-data="WorkflowRequestID">Reference</th>
-                        <th speed-table-data="Client">Client(s)</th>
-                        <th speed-table-data="Adviser">Adviser</th>
-                        <th speed-table-data="LoanAmountRequired">Loan</th>
-                        <th speed-table-data="Approval_Status">Stage</th>
-                        <th />
+                        <th>Reference</th>
+                        <th>Client(s)</th>
+                        <th>Adviser</th>
+                        <th>Status</th>
                       </tr>
                     </thead>
                     <tbody id="speed-data-table" />
@@ -93,183 +108,26 @@ export default class DashBoard extends React.Component<{}, {}> {
                 </div>
               </div>
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-              <div>
-                <div className="section-hdr">
-                  <h2>Activity Feed</h2>
-                </div>
-                <div className="card">
-                  <div className="activity-feed">
-                    <div className="act-item">
-                      <div
-                        className="act-dot"
-                        style={{ background: "#eff6ff" }}
-                      >
-                        📤
-                      </div>
-                      <div>
-                        <div className="act-text">
-                          <strong>James Harrington</strong> uploaded payslips
-                          via portal
-                        </div>
-                        <div className="act-time">
-                          MB-2026-000024 · 14 mins ago
-                        </div>
-                      </div>
-                    </div>
-                    <div className="act-item">
-                      <div
-                        className="act-dot"
-                        style={{ background: "#f0fdf4" }}
-                      >
-                        ✅
-                      </div>
-                      <div>
-                        <div className="act-text">
-                          Mortgage offer issued —{" "}
-                          <strong>NatWest · 5yr fixed 4.49%</strong>
-                        </div>
-                        <div className="act-time">
-                          MB-2026-000023 · 1 hour ago
-                        </div>
-                      </div>
-                    </div>
-                    <div className="act-item">
-                      <div
-                        className="act-dot"
-                        style={{ background: "#fffbeb" }}
-                      >
-                        ⚠️
-                      </div>
-                      <div>
-                        <div className="act-text">
-                          Outstanding bank statements —{" "}
-                          <strong>chase client</strong>
-                        </div>
-                        <div className="act-time">
-                          MB-2026-000022 · 3 hours ago
-                        </div>
-                      </div>
-                    </div>
-                    <div className="act-item">
-                      <div
-                        className="act-dot"
-                        style={{ background: "#fdf4ff" }}
-                      >
-                        🏠
-                      </div>
-                      <div>
-                        <div className="act-text">
-                          Exchange confirmed — completion{" "}
-                          <strong>27 Jun 2026</strong>
-                        </div>
-                        <div className="act-time">MB-2026-000021 · 9:15 AM</div>
-                      </div>
-                    </div>
-                    <div className="act-item">
-                      <div
-                        className="act-dot"
-                        style={{ background: "#f0fdfa" }}
-                      >
-                        🔔
-                      </div>
-                      <div>
-                        <div className="act-text">
-                          <strong>3 cases</strong> awaiting approval action
-                        </div>
-                        <div className="act-time">Compliance Team · Today</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+
+            <div>
+              <div className="section-hdr">
+                <h2>Activity Feed</h2>
               </div>
-              <div className="hidden">
-                <div className="section-hdr">
-                  <h2>Completions — 2026</h2>
-                </div>
-                <div className="card">
-                  <div className="bar-chart">
-                    <div className="bar-wrap">
-                      <div
-                        className="bar"
-                        style={{ background: "var(--accent)", height: "35%" }}
-                      />
-                      <div className="bar-label">Jan</div>
-                    </div>
-                    <div className="bar-wrap">
-                      <div
-                        className="bar"
-                        style={{ background: "var(--accent)", height: "50%" }}
-                      />
-                      <div className="bar-label">Feb</div>
-                    </div>
-                    <div className="bar-wrap">
-                      <div
-                        className="bar"
-                        style={{ background: "var(--accent)", height: "40%" }}
-                      />
-                      <div className="bar-label">Mar</div>
-                    </div>
-                    <div className="bar-wrap">
-                      <div
-                        className="bar"
-                        style={{ background: "var(--accent)", height: "65%" }}
-                      />
-                      <div className="bar-label">Apr</div>
-                    </div>
-                    <div className="bar-wrap">
-                      <div
-                        className="bar"
-                        style={{ background: "var(--accent)", height: "80%" }}
-                      />
-                      <div className="bar-label">May</div>
-                    </div>
-                    <div className="bar-wrap">
-                      <div
-                        className="bar"
-                        style={{
-                          background: "linear-gradient(180deg,#0ea5e9,#2563eb)",
-                          height: "58%",
-                          boxShadow: "0 4px 12px rgba(37,99,235,0.4)",
-                        }}
-                      />
-                      <div
-                        className="bar-label"
-                        style={{ color: "var(--accent)", fontWeight: 700 }}
-                      >
-                        Jun
-                      </div>
-                    </div>
-                    <div className="bar-wrap">
-                      <div
-                        className="bar"
-                        style={{ background: "var(--border)", height: "20%" }}
-                      />
-                      <div className="bar-label">Jul</div>
-                    </div>
-                    <div className="bar-wrap">
-                      <div
-                        className="bar"
-                        style={{ background: "var(--border)", height: "20%" }}
-                      />
-                      <div className="bar-label">Aug</div>
-                    </div>
+              <div className="card" id="dash-activity-feed">
+                <div className="act-item">
+                  <div className="act-text" style={{ color: "var(--muted)" }}>
+                    Loading activity…
                   </div>
                 </div>
               </div>
             </div>
           </div>
-          <div className="section-hdr hidden">
-            <h2>Tasks Due Today</h2>
-            <button className="link-btn">View all →</button>
-          </div>
-          <div className="card" id="dashTasks" />
         </div>
       </>
     );
   }
 
   public componentDidMount(): void {
-    window.loadDashBoardComponent();
+    (window as any).loadDashBoardComponent();
   }
 }
