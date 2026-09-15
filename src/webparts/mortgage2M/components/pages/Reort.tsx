@@ -12,7 +12,10 @@ export default class Report extends React.Component<{}, {}> {
   public render(): React.ReactElement {
     return (
       <>
-        <div className="view active" id="view-reporting">
+        <div className="" id="view-cases">
+          <h1>No Report at the moment!!!</h1>
+        </div>
+        <div className="view hidden" id="view-reporting">
           <div className="section-hdr" style={{ marginBottom: 16 }}>
             <h2 style={{ fontSize: 16 }}>Reporting &amp; Analytics</h2>
             <div className="filter-tabs">

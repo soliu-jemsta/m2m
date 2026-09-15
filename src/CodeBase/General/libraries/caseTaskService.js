@@ -5,6 +5,20 @@
 var CaseTaskService = (function () {
   "use strict";
 
+
+  function auditLog(action, message) {
+    try {
+      if (typeof globalDefinitions !== "undefined" && globalDefinitions.AuditLogManager_SaveLog) {
+        globalDefinitions.AuditLogManager_SaveLog({
+          Action: action || "",
+          Message: message || ""
+        });
+      }
+    } catch (e) {
+      console.warn("[CaseTaskService] audit log failed", e);
+    }
+  }
+
   function getTasksListName() {
     if (typeof configProperties !== "undefined" && configProperties.CASETASKSLIST) {
       return configProperties.CASETASKSLIST.setting;
@@ -190,6 +204,12 @@ var CaseTaskService = (function () {
       items,
       getTasksListName(),
       function (created) {
+        if (context && context.CaseID) {
+          auditLog(
+            "Created stage tasks for " + context.CaseID,
+            "Stage: " + (context.Stage || "") + " — auto tasks generated"
+          );
+        }
         callback(null, created || []);
       },
       function (sender, args, meta) {
@@ -243,6 +263,10 @@ var CaseTaskService = (function () {
       [item],
       getTasksListName(),
       function (created) {
+        auditLog(
+          "Created Task on " + (data.CaseID || ""),
+          "Title: " + (data.Title || "") + " · Stage: " + (data.Stage || "")
+        );
         callback(null, created);
       },
       function (sender, args, meta) {
@@ -263,6 +287,10 @@ var CaseTaskService = (function () {
           [minimal],
           getTasksListName(),
           function (created) {
+            auditLog(
+              "Created Task on " + (data.CaseID || ""),
+              "Title: " + (data.Title || "") + " · Stage: " + (data.Stage || "")
+            );
             callback(null, created);
           },
           function (s2, a2, m2) {
@@ -336,6 +364,10 @@ var CaseTaskService = (function () {
         [updateObj],
         casesList,
         function () {
+          auditLog(
+            "Updated Case Stage " + (options.CaseID || ""),
+            "CurrentStage set to " + (options.Stage || "")
+          );
           afterUpdate();
         },
         function (sender, args, meta) {
@@ -379,16 +411,21 @@ var CaseTaskService = (function () {
     }
   }
 
-  function completeTask(taskItemId, callback) {
+  function completeTask(taskItemId, callback, meta) {
     callback = callback || function () {};
+    meta = meta || {};
     $spcontext.updateItems(
       [{ ID: taskItemId, TaskStatus: "Done", CompletedDate: new Date() }],
       getTasksListName(),
       function () {
+        auditLog(
+          "Completed Task " + taskItemId + (meta.CaseID ? " on " + meta.CaseID : ""),
+          meta.Title ? "Title: " + meta.Title : ""
+        );
         callback(null);
       },
-      function (sender, args, meta) {
-        callback(spFailToMessage(sender, args, meta));
+      function (sender, args, metaErr) {
+        callback(spFailToMessage(sender, args, metaErr));
       }
     );
   }
@@ -593,10 +630,22 @@ var CaseTaskService = (function () {
       [{ ID: id, Stage: newStage }],
       listName,
       function () {
+        var fromStage = options.fromStage || "";
+        auditLog(
+          "Moved Task " + id + (options.CaseID ? " on " + options.CaseID : ""),
+          (fromStage ? fromStage + " → " : "→ ") + newStage
+        );
         function finish(extra) {
           extra = extra || {};
           // After any move, if ALL tasks are in Completion or Case Closed → update Status
           maybeSyncCaseStatusFromTasks(options.CaseID, options.CaseListItemId, function (statusResult) {
+            if (statusResult && statusResult.caseStatusUpdated) {
+              auditLog(
+                "Updated Case Status " + (options.CaseID || ""),
+                "Status set to " + (statusResult.caseStatus || "") +
+                  " (all tasks in " + (statusResult.caseStage || newStage) + ")"
+              );
+            }
             callback(null, Object.assign({
               list: listName,
               id: id,
@@ -681,7 +730,14 @@ var CaseTaskService = (function () {
     $spcontext.updateItems(
       [updateObj],
       getTasksListName(),
-      function () { callback(null); },
+      function () {
+        auditLog(
+          "Updated Task " + data.ID,
+          "Title: " + (data.Title || "") +
+            (data.TaskStatus ? " · Status: " + data.TaskStatus : "")
+        );
+        callback(null);
+      },
       function (sender, args, meta) {
         callback(spFailToMessage(sender, args, meta));
       }
@@ -718,7 +774,13 @@ var CaseTaskService = (function () {
     $spcontext.updateItems(
       [{ ID: taskId, Comments: next }],
       getTasksListName(),
-      function () { callback(null, next); },
+      function () {
+        auditLog(
+          "Commented on Task " + taskId,
+          String(commentText).trim().substring(0, 200)
+        );
+        callback(null, next);
+      },
       function (sender, args, meta) {
         callback(spFailToMessage(sender, args, meta));
       }

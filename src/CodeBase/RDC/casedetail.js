@@ -65,6 +65,14 @@ function whenCaseDetailLoaded() {
 				var caseItem = mapSpItemToCase(spItem);
 
 				console.log("[CaseDetail] loaded:", caseItem);
+				try {
+					if (globalDefinitions && globalDefinitions.AuditLogManager_SaveLog) {
+						globalDefinitions.AuditLogManager_SaveLog({
+							Action: "Viewed Case " + (caseItem.CaseID || caseId),
+							Message: "Opened case detail · Stage: " + (caseItem.CurrentStage || stage || "")
+						});
+					}
+				} catch (auditErr) {}
 				MainApplication.CaseDetailComponent.currentCase = caseItem;
 
 				var clientName = caseItem.ClientDisplay || "";

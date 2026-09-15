@@ -384,7 +384,7 @@ var CaseStageUI = (function () {
         if (action === "complete") {
           if (card.classList.contains("kb-locked")) return;
           if (task && task.TaskStatus === "Done") return;
-          completeTask(taskId, taskCaseId);
+          completeTask(taskId, taskCaseId, task);
           return;
         }
         if (action === "edit") {
@@ -510,7 +510,8 @@ var CaseStageUI = (function () {
           {
             alsoUpdateCaseStage: true,
             CaseID: appCaseId,
-            CaseListItemId: caseListId
+            CaseListItemId: caseListId,
+            fromStage: fromStage
           }
         );
       });
@@ -907,21 +908,28 @@ var CaseStageUI = (function () {
     });
   }
 
-  function completeTask(taskId, caseId) {
-    CaseTaskService.completeTask(taskId, function (err) {
-      if (err) {
-        globalDefinitions.HandlerError("Could not complete task: " + err, false);
-        return;
+  function completeTask(taskId, caseId, taskMeta) {
+    CaseTaskService.completeTask(
+      taskId,
+      function (err) {
+        if (err) {
+          globalDefinitions.HandlerError("Could not complete task: " + err, false);
+          return;
+        }
+        if (MainApplication.notyf) MainApplication.notyf.success("Task marked Done");
+        var root = document.getElementById("caseDetailRoot");
+        var stage = root && root.getAttribute("data-current-stage");
+        renderKanban(
+          caseId || (root && root.getAttribute("data-case-id")),
+          (_lastKanban && _lastKanban.containerId) || "caseKanbanBoard",
+          stage
+        );
+      },
+      {
+        CaseID: caseId || (taskMeta && taskMeta.CaseID) || "",
+        Title: (taskMeta && taskMeta.Title) || ""
       }
-      if (MainApplication.notyf) MainApplication.notyf.success("Task marked Done");
-      var root = document.getElementById("caseDetailRoot");
-      var stage = root && root.getAttribute("data-current-stage");
-      renderKanban(
-        caseId || (root && root.getAttribute("data-case-id")),
-        (_lastKanban && _lastKanban.containerId) || "caseKanbanBoard",
-        stage
-      );
-    });
+    );
   }
 
   function reloadTasks(caseId) {
