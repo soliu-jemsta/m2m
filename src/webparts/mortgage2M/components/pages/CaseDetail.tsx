@@ -16,6 +16,7 @@ export default class CaseDetail extends React.Component<{}, {}> {
         data-client=""
         data-adviser=""
         data-current-stage=""
+        data-completed-stages=""
       >
         <div className="section-hdr" style={{ marginBottom: 16 }}>
           <div>
@@ -28,35 +29,29 @@ export default class CaseDetail extends React.Component<{}, {}> {
             </p>
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-            <button
-              type="button"
-              id="btnNewTask"
-              className="btn btn-primary btn-sm"
-              onClick={() => {
-                const root = document.getElementById("caseDetailRoot");
-                const caseId = root && root.getAttribute("data-case-id");
-                const stage =
-                  (root && root.getAttribute("data-current-stage")) || "Lead";
-                if (
-                  stage === "Completion" ||
-                  stage === "Case Closed"
-                ) {
-                  return;
-                }
-                if (caseId && (window as any).CaseStageUI) {
-                  (window as any).CaseStageUI.openNewTaskModal(caseId, stage);
-                }
-              }}
-            >
-              + New Task
-            </button>
             <a href="#/cases" className="btn btn-secondary btn-sm">
               Back to Cases
             </a>
           </div>
         </div>
 
-        <div id="caseKanbanBoard" className="kanban-board" />
+        <div className="case-lifecycle-panel">
+          <div className="lifecycle-header">
+            <div>
+              <h3 className="stage-checklist-title">Case lifecycle</h3>
+              <p className="stage-checklist-hint">
+                Mark any stage as complete. Once checked, it stays done.
+              </p>
+            </div>
+            <div className="lifecycle-progress-meta">
+              <span id="lifecycleProgressLabel" className="lifecycle-progress-label">—</span>
+            </div>
+          </div>
+          <div className="lifecycle-progress-track" aria-hidden="true">
+            <div id="lifecycleProgressBar" className="lifecycle-progress-bar" style={{ width: "0%" }} />
+          </div>
+          <div id="caseKanbanBoard" className="stage-checklist" />
+        </div>
       </div>
     );
   }

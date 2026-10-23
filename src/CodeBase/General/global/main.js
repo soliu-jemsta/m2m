@@ -239,54 +239,7 @@ function whenLayoutLoaded() {
         //   }
         //   checkAppDependency();
         // })
-        var clientInfoColumns = [
-          "ID",
-          "Title",
-          "EmailAddress",
-          "DOB",
-          "Nationality",
-          "MaritalStatus",
-          "MobileNumber",
-        ];
-
-        $spcontext.getListToItems(
-          "ClientsList",
-          [
-            {
-              orderby: "ID",
-              ascending: "FALSE",
-            },
-          ],
-          {
-            ignoreThreshold: false,
-            data: clientInfoColumns,
-            merge: false,
-          },
-          false,
-          function (item) {
-            const client = {
-              ID: item.ID || "",
-              Title: item.Title || "",
-              Email: item.EmailAddress || "",
-              DOB: item.DOB || "",
-              Nationality: item.Nationality || "",
-              MaritalStatus: item.MaritalStatus || "",
-              MobileNumber: item.MobileNumber || "",
-            };
-
-            if (client.Email) {
-              MainApplication.clientDetails[client.Email.toLowerCase()] = client;
-              MainApplication.clientList.push(client);
-            }
-
-            return client;
-          },
-          function (items) {
-            MainApplication.clientList = items;
-
-            checkAppDependency();
-          }
-        );
+        MainApplication.loadClientDetails(checkAppDependency);
 
         var advisersColumn = [
           "ID",
@@ -532,7 +485,10 @@ MainApplication.reportSyncSearch = function (keyquery, data) {
       item.EmployeeEmail?.toLowerCase().includes(keyquery) ||
       item.Approval_Status?.toLowerCase().includes(keyquery) ||
       item.Current_Approver?.toLowerCase().includes(keyquery) ||
-      item.Division?.toLowerCase().includes(keyquery),
+      item.Division?.toLowerCase().includes(keyquery) ||
+      item.CaseID?.toLowerCase().includes(keyquery) ||
+      item.Client?.toLowerCase().includes(keyquery) ||
+      item.Adviser?.toLowerCase().includes(keyquery),
   );
 };
 
@@ -805,4 +761,58 @@ MainApplication.getGreeting = function () {
 
   return "Good Evening";
 };
+
+MainApplication.loadClientDetails = function (callback = null) {
+
+  var clientInfoColumns = [
+    "ID",
+    "Title",
+    "EmailAddress",
+    "DOB",
+    "Nationality",
+    "MaritalStatus",
+    "MobileNumber",
+  ];
+
+  $spcontext.getListToItems(
+    "ClientsList",
+    [
+      {
+        orderby: "ID",
+        ascending: "FALSE",
+      },
+    ],
+    {
+      ignoreThreshold: false,
+      data: clientInfoColumns,
+      merge: false,
+    },
+    false,
+    function (item) {
+      const client = {
+        ID: item.ID || "",
+        Title: item.Title || "",
+        Email: item.EmailAddress || "",
+        DOB: item.DOB || "",
+        Nationality: item.Nationality || "",
+        MaritalStatus: item.MaritalStatus || "",
+        MobileNumber: item.MobileNumber || "",
+      };
+
+      if (client.Email) {
+        MainApplication.clientDetails[client.Email.toLowerCase()] = client;
+      }
+
+      return client;
+    },
+    function (items) {
+      MainApplication.clientList = items;
+
+      if (typeof callback === "function") {
+        callback();
+      }
+    }
+  );
+}
+
 whenLayoutLoaded();

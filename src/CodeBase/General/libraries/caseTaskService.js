@@ -313,6 +313,13 @@ var CaseTaskService = (function () {
     var updateObj = {
       CurrentStage: options.Stage
     };
+    // Independent checklist: optional semicolon-separated list of completed stage names
+    if (options.CompletedStages != null && options.CompletedStages !== undefined) {
+      updateObj.CompletedStages =
+        typeof options.CompletedStages === "string"
+          ? options.CompletedStages
+          : (options.CompletedStages || []).join(";");
+    }
 
     function afterUpdate() {
       if (options.skipTasks) {

@@ -80,6 +80,7 @@ function whenCaseDetailLoaded() {
 				var stage = caseItem.CurrentStage || "Lead";
 
 				var root = document.getElementById("caseDetailRoot");
+				var completedRaw = caseItem.CompletedStages || "";
 				if (root) {
 					root.setAttribute("data-case-id", caseItem.CaseID || caseId);
 					root.setAttribute("data-case-list-id", String(caseItem.ID || ""));
@@ -87,6 +88,7 @@ function whenCaseDetailLoaded() {
 					root.setAttribute("data-client", clientName);
 					root.setAttribute("data-adviser", adviser);
 					root.setAttribute("data-current-stage", stage);
+					root.setAttribute("data-completed-stages", completedRaw);
 				}
 
 				$("#caseHeaderRef").text(caseItem.CaseID || caseId);
@@ -98,16 +100,21 @@ function whenCaseDetailLoaded() {
 						CaseStageUI.fillStageSelect("case_next_stage", stage);
 					}
 					if (typeof CaseStageUI.renderKanban === "function") {
-						CaseStageUI.renderKanban(caseItem.CaseID || caseId, "caseKanbanBoard", stage);
-					}
-					if (typeof CaseStageUI.updateNewTaskButtonState === "function") {
-						CaseStageUI.updateNewTaskButtonState(stage);
+						CaseStageUI.renderKanban(
+							caseItem.CaseID || caseId,
+							"caseKanbanBoard",
+							stage,
+							completedRaw
+						);
 					} else {
 						console.error("[CaseDetail] CaseStageUI.renderKanban is missing — update caseStageUI.js export");
 						var kb = document.getElementById("caseKanbanBoard");
 						if (kb) {
-							kb.innerHTML = '<div style="padding:12px;color:#dc2626">Kanban failed to load (renderKanban not exported). Update caseStageUI.js.</div>';
+							kb.innerHTML = '<div style="padding:12px;color:#dc2626">Stage checklist failed to load (renderKanban not exported). Update caseStageUI.js.</div>';
 						}
+					}
+					if (typeof CaseStageUI.updateNewTaskButtonState === "function") {
+						CaseStageUI.updateNewTaskButtonState(stage);
 					}
 				} else {
 					console.error("[CaseDetail] CaseStageUI not loaded");
@@ -176,6 +183,7 @@ function mapSpItemToCase(spItem) {
 		Title: field("Title") || "",
 		ApplicationType: field("ApplicationType") || "",
 		CurrentStage: field("CurrentStage") || field("Stage") || "Lead",
+		CompletedStages: field("CompletedStages") || "",
 		Status: field("Status") || "Open",
 		Client: client,
 		ClientDisplay: personDisplay(client),

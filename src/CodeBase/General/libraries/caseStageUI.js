@@ -1,5 +1,5 @@
 /**
- * CaseStageUI — stage select, advance, kanban (drag), manual task modal
+ * CaseStageUI — stage select, advance, stage checklist, manual task modal
  */
 
 var CaseStageUI = (function () {
@@ -76,7 +76,12 @@ var CaseStageUI = (function () {
         if (MainApplication.notyf) MainApplication.notyf.success(successMsg);
         else globalDefinitions.HandlerSuccess(successMsg);
 
-        renderKanban(root.getAttribute("data-case-id"), "caseKanbanBoard", newStage);
+        renderKanban(
+          root.getAttribute("data-case-id"),
+          "caseKanbanBoard",
+          newStage,
+          root.getAttribute("data-completed-stages")
+        );
       }
     );
   }
@@ -252,22 +257,68 @@ var CaseStageUI = (function () {
     );
   }
 
-  function renderKanban(caseId, containerId, currentStage) {
+  /**
+   * Independent stage checklist.
+   * Each stage is completed on its own — marking #3 does NOT mark #1 or #2.
+   * Completed stages are locked (cannot uncheck).
+   * Progress is based on how many stages are in the completed set.
+   *
+   * Persistence: CompletedStages (semicolon-separated) on the Cases list item.
+   * Add a multi-line text column named "CompletedStages" on the Cases list if missing.
+   */
+  function parseCompletedStages(raw) {
+    if (!raw) return [];
+    if (Array.isArray(raw)) {
+      return raw.map(function (s) { return String(s).trim(); }).filter(Boolean);
+    }
+    return String(raw)
+      .split(/[;\n,|]/)
+      .map(function (s) { return s.trim(); })
+      .filter(Boolean);
+  }
+
+  function serializeCompletedStages(list) {
+    var seen = {};
+    var out = [];
+    (list || []).forEach(function (s) {
+      s = String(s || "").trim();
+      if (s && !seen[s]) {
+        seen[s] = true;
+        out.push(s);
+      }
+    });
+    return out.join(";");
+  }
+
+  function renderKanban(caseId, containerId, currentStage, completedRaw) {
     containerId = containerId || "caseKanbanBoard";
     var container = document.getElementById(containerId);
     if (!container) {
-      console.warn("[Kanban] container not found:", containerId);
+      console.warn("[StageChecklist] container not found:", containerId);
       return;
     }
 
-    _lastKanban = { caseId: caseId, containerId: containerId, currentStage: currentStage };
+    var root = document.getElementById("caseDetailRoot");
+    if (completedRaw == null && root) {
+      completedRaw = root.getAttribute("data-completed-stages") || "";
+    }
+    if (currentStage == null && root) {
+      currentStage = root.getAttribute("data-current-stage") || "Lead";
+    }
+
+    var completedList = parseCompletedStages(completedRaw);
+    var completedSet = {};
+    completedList.forEach(function (s) {
+      completedSet[s] = true;
+    });
+
+    _lastKanban = {
+      caseId: caseId,
+      containerId: containerId,
+      currentStage: currentStage,
+      completedStages: completedList.slice()
+    };
     updateNewTaskButtonState(currentStage);
-
-    if (!window.CaseTaskService || typeof CaseTaskService.getAllTasksForCase !== "function") {
-      container.innerHTML =
-        '<div style="padding:12px;color:#dc2626">CaseTaskService is not loaded — cannot render Kanban.</div>';
-      return;
-    }
 
     var stages = window.CASE_STAGES || [];
     if (!stages.length) {
@@ -276,71 +327,182 @@ var CaseStageUI = (function () {
       return;
     }
 
-    container.innerHTML =
-      '<div style="padding:12px;color:#94a3b8;font-size:13px">Loading tasks…</div>';
+    var doneCount = stages.filter(function (s) {
+      return completedSet[s];
+    }).length;
+    var progressPct = stages.length
+      ? Math.round((doneCount / stages.length) * 100)
+      : 0;
+    var bar = document.getElementById("lifecycleProgressBar");
+    var label = document.getElementById("lifecycleProgressLabel");
+    if (bar) bar.style.width = progressPct + "%";
+    if (label) {
+      label.textContent =
+        doneCount + " of " + stages.length + " complete · " + (currentStage || "—");
+    }
 
-    CaseTaskService.getAllTasksForCase(caseId, function (err, tasks) {
-      if (err) {
-        container.innerHTML =
-          '<div style="padding:12px;color:#dc2626">Could not load tasks: ' + err + "</div>";
-        return;
-      }
+    var html = stages
+      .map(function (stage, idx) {
+        var isDone = !!completedSet[stage];
+        var isCurrent = stage === currentStage;
 
-      var byStage = {};
-      (tasks || []).forEach(function (t) {
-        var s = t.Stage || "Lead";
-        (byStage[s] = byStage[s] || []).push(t);
-      });
+        var cls = "stage-check-item";
+        if (isDone) cls += " done locked";
+        if (isCurrent) cls += " current";
+        if (!isDone) cls += " pending";
+        if (stage === "Completion") cls += " stage-completion";
+        if (stage === "Case Closed") cls += " stage-closed";
 
-      container.innerHTML = stages
-        .map(function (stage) {
-          var stageTasks = byStage[stage] || [];
-          var openCount = stageTasks.filter(function (t) {
-            return t.TaskStatus !== "Done";
-          }).length;
-          var isCurrent = stage === currentStage;
+        var checkMark = isDone ? "✓" : "";
+        var statusLabel = isDone
+          ? isCurrent
+            ? "Complete · current"
+            : "Complete"
+          : "Mark complete";
 
-          var cardsHtml = stageTasks.length
-            ? stageTasks.map(taskCardHtml).join("")
-            : '<div class="kb-empty">No tasks — drop here</div>';
+        var clickable = !isDone;
+        var title = isDone
+          ? "Already completed — cannot undo"
+          : "Mark only this stage as complete";
 
-          var colExtra = "";
-          if (stage === "Completion") colExtra = " kb-col-completion";
-          else if (stage === "Case Closed") colExtra = " kb-col-closed";
-          if (isLockedStage(stage)) colExtra += " kb-col-locked";
+        return (
+          '<div class="' +
+          cls +
+          '" data-stage="' +
+          escapeHtml(stage) +
+          '" data-index="' +
+          idx +
+          '" data-clickable="' +
+          (clickable ? "1" : "0") +
+          '" role="button" tabindex="' +
+          (clickable ? "0" : "-1") +
+          '" title="' +
+          escapeHtml(title) +
+          '" style="animation-delay:' +
+          idx * 40 +
+          'ms">' +
+          '<div class="stage-check-box">' +
+          checkMark +
+          "</div>" +
+          '<div class="stage-check-body">' +
+          '<span class="stage-check-name">' +
+          escapeHtml(stage) +
+          "</span>" +
+          '<span class="stage-check-status">' +
+          statusLabel +
+          "</span>" +
+          "</div>" +
+          "</div>"
+        );
+      })
+      .join("");
 
-          return (
-            '<div class="kb-col' +
-            (isCurrent ? " current" : "") +
-            colExtra +
-            '" data-stage="' +
-            stage +
-            '">' +
-            '<div class="kb-col-hdr">' +
-            "<span>" +
-            stage +
-            "</span>" +
-            '<span class="kb-count">' +
-            openCount +
-            "/" +
-            stageTasks.length +
-            "</span>" +
-            "</div>" +
-            '<div class="kb-col-body" data-stage="' +
-            stage +
-            '">' +
-            cardsHtml +
-            "</div>" +
-            "</div>"
-          );
-        })
-        .join("");
-
-      bindKanbanDragDrop(container, caseId);
-      bindCardActions(container, caseId, tasks || []);
-    });
+    container.innerHTML = html;
+    bindStageChecklistClicks(container, caseId, currentStage, completedList);
   }
 
+  function bindStageChecklistClicks(container, caseId, currentStage, completedList) {
+    completedList = (completedList || []).slice();
+
+    container.querySelectorAll(".stage-check-item").forEach(function (item) {
+      item.addEventListener("click", function () {
+        if (item.getAttribute("data-clickable") !== "1") return;
+        if (item.classList.contains("done") || item.classList.contains("locked")) {
+          return;
+        }
+
+        var newStage = item.getAttribute("data-stage");
+        if (!newStage) return;
+
+        // Already in completed set — ignore
+        if (completedList.indexOf(newStage) >= 0) return;
+
+        if (
+          !confirm(
+            'Mark only "' +
+              newStage +
+              '" as complete?\n\nOther stages are not changed. Standard tasks for this stage may be created.'
+          )
+        ) {
+          return;
+        }
+
+        var root = document.getElementById("caseDetailRoot");
+        if (!root) {
+          globalDefinitions.HandlerError("Case detail root not found", false);
+          return;
+        }
+
+        var nextCompleted = completedList.concat([newStage]);
+        var completedStr = serializeCompletedStages(nextCompleted);
+
+        globalDefinitions.callLoader();
+
+        CaseTaskService.changeStage(
+          {
+            CaseID: root.getAttribute("data-case-id") || caseId,
+            CaseListItemId:
+              parseInt(root.getAttribute("data-case-list-id"), 10) || undefined,
+            Stage: newStage,
+            CompletedStages: completedStr,
+            ApplicationType: root.getAttribute("data-app-type"),
+            Client: root.getAttribute("data-client"),
+            Adviser: root.getAttribute("data-adviser"),
+            CaseManager:
+              root.getAttribute("data-case-manager") ||
+              root.getAttribute("data-adviser"),
+            Initiator: CurrentUserProperties && CurrentUserProperties.email
+          },
+          function (err, result) {
+            globalDefinitions.closeLoader();
+            if (err) {
+              var msg =
+                window.CaseTaskService && CaseTaskService.formatError
+                  ? CaseTaskService.formatError(err)
+                  : typeof err === "string"
+                  ? err
+                  : (err && err.message) || String(err);
+              // If CompletedStages column is missing, surface a clear hint
+              if (/CompletedStages|does not exist|Invalid field/i.test(String(msg))) {
+                msg +=
+                  ' — Add a multi-line text column named "CompletedStages" on the Cases list.';
+              }
+              globalDefinitions.HandlerError(
+                "Could not update stage: " + msg,
+                false
+              );
+              return;
+            }
+
+            root.setAttribute("data-current-stage", newStage);
+            root.setAttribute("data-completed-stages", completedStr);
+            var hdr = document.getElementById("caseHeaderStage");
+            if (hdr) hdr.textContent = newStage;
+
+            var successMsg = 'Marked "' + newStage + '" complete';
+            if (result && result.taskWarning) {
+              successMsg += " (tasks warning: " + result.taskWarning + ")";
+            }
+
+            if (MainApplication.notyf) MainApplication.notyf.success(successMsg);
+            else globalDefinitions.HandlerSuccess(successMsg);
+
+            item.classList.add("done", "locked", "just-done");
+            item.setAttribute("data-clickable", "0");
+            var box = item.querySelector(".stage-check-box");
+            if (box) box.textContent = "✓";
+
+            renderKanban(
+              root.getAttribute("data-case-id") || caseId,
+              container.id || "caseKanbanBoard",
+              newStage,
+              completedStr
+            );
+          }
+        );
+      });
+    });
+  }
 
 
   var _tasksById = {};

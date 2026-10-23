@@ -35,8 +35,6 @@ const GlobalSideNav: React.FC<GlobalSideNavProps> = ({ closeSidebar }) => {
                 Dashboard
             </Link>
 
-            
-
             <Link
                 to="/clients"
                 className={navClass("/clients")}
@@ -44,6 +42,15 @@ const GlobalSideNav: React.FC<GlobalSideNavProps> = ({ closeSidebar }) => {
             >
                 <span className="nav-icon">👤</span>
                 Clients
+            </Link>
+
+            <Link
+                to="/new-client"
+                className={navClass("/new-client")}
+                onClick={closeSidebar}
+            >
+                <span className="nav-icon">＋</span>
+                Add Client
             </Link>
 
             <Link
@@ -58,42 +65,21 @@ const GlobalSideNav: React.FC<GlobalSideNavProps> = ({ closeSidebar }) => {
                 </span>
             </Link>
 
+            <Link
+                to="/new-case"
+                className={navClass("/new-case")}
+                onClick={closeSidebar}
+            >
+                <span className="nav-icon">📝</span>
+                Create Case
+            </Link>
+
             {/* Tools */}
             <div className="sidebar-section-label">Tools</div>
 
-            {/* <Link
-                to="/approvals"
-                className={navClass("/approvals")}
-                onClick={closeSidebar}
-            >
-                <span className="nav-icon">✅</span>
-                Approvals
-                <span className="nav-badge warn" id="approvalBadge">
-                    3
-                </span>
-            </Link>
-
-            <Link
-                to="/documents"
-                className={navClass("/documents")}
-                onClick={closeSidebar}
-            >
-                <span className="nav-icon">📄</span>
-                Documents
-            </Link>
-
-            <Link
-                to="/reporting"
-                className={navClass("/reporting")}
-                onClick={closeSidebar}
-            >
-                <span className="nav-icon">📊</span>
-                Reporting
-            </Link> */}
-
             <Link
                 to="/report"
-                className={navClass("/portal")}
+                className={navClass("/report")}
                 onClick={closeSidebar}
             >
                 <span className="nav-icon">🌐</span>
@@ -114,7 +100,6 @@ const GlobalSideNav: React.FC<GlobalSideNavProps> = ({ closeSidebar }) => {
 
             <div className="sidebar-footer">
                 <div className="user-widget">
-                    {/* Replace with your existing avatar if desired */}
                     <img
                         className="avatar"
                         src=""

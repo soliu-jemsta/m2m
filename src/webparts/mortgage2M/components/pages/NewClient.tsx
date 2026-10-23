@@ -1,84 +1,114 @@
 import * as React from "react";
 import ClientButton from "../../../../Global/ClientButton";
-// import { NewLoader } from "../../../../Global/NewLoader";
-// import { Link } from "react-router-dom";
-// import ClientButton from "../../../../Global/ClientButton";
-// // import { NewLoader } from "../../../../Global/NewLoader";
-// import IdeaFormSkeleton from "../../../../Global/IdeaFormSkeleton";
 
 require("newclient");
 
+/**
+ * Client intake — basic information only.
+ * Advanced (employment / financial / protection) is hidden for now.
+ */
 export default class NewClient extends React.Component<{}, {}> {
   public render(): React.ReactElement {
     return (
       <>
-        <div className="form-page">
+        <div className="form-page client-intake-page">
           <div className="page-header">
             <div>
-              <h1>Add New Client</h1>
-              <p>Register a new client in the CRM</p>
+              <h1>Add client</h1>
+              <p>Capture basic client details</p>
             </div>
           </div>
 
           <div className="form-container">
-            {/* Personal Information */}
-            <div className="form-section">
-              <div className="form-section-title">Personal Details</div>
+            <div className="form-section" id="basicInfoSection">
+              <div className="form-section-title">Basic information</div>
 
               <div className="form-row">
                 <div className="form-group">
-                  <label>
-                    First Name <span className="req">*</span>
+                  <label htmlFor="cl_firstName">
+                    First name <span className="req">*</span>
                   </label>
                   <input
                     type="text"
                     id="cl_firstName"
-                    placeholder="Enter first name!"
-                    speed-bind="FirstName"
+                    placeholder="e.g. Jane"
+                    speed-bind-validate="FirstName"
+                    data-validate="required|name"
+                    maxLength={80}
                   />
-                </div>
-
-                <div className="form-group">
-                  <label>Last Name</label>
-                  <input type="text"
-                    id="cl_dob"
-                    speed-bind="LastName"
-                    placeholder="Enter Last Name!"
-                    />
-                </div>
-              </div>
-
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Date of Birth</label>
-                  <input type="date" id="cl_dob"
-                    speed-bind="DOB"
-                  />
+                  <span className="field-error" data-error-for="cl_firstName" />
                 </div>
                 <div className="form-group">
-                  <label>National Insurance Number</label>
+                  <label htmlFor="cl_lastName">
+                    Last name <span className="req">*</span>
+                  </label>
                   <input
                     type="text"
-                    id="cl_niNumber"
-                    placeholder="Encrypted NI Number"
-                    speed-bind="NIN"
+                    id="cl_lastName"
+                    placeholder="e.g. Smith"
+                    speed-bind-validate="LastName"
+                    data-validate="required|name"
+                    maxLength={80}
                   />
+                  <span className="field-error" data-error-for="cl_lastName" />
                 </div>
               </div>
 
               <div className="form-row">
                 <div className="form-group">
-                  <label>Nationality</label>
-                  <input type="text" id="cl_nationality"
-                    speed-bind="Nationality"
-                    placeholder="Enter text here"
+                  <label htmlFor="cl_email">
+                    Email address <span className="req">*</span>
+                  </label>
+                  <input
+                    type="email"
+                    id="cl_email"
+                    placeholder="name@example.com"
+                    speed-bind-validate="EmailAddress"
+                    data-validate="required|email"
+                    maxLength={254}
                   />
+                  <span className="field-error" data-error-for="cl_email" />
                 </div>
-
                 <div className="form-group">
-                  <label>Marital Status</label>
+                  <label htmlFor="cl_mobile">
+                    Mobile number <span className="req">*</span>
+                  </label>
+                  <input
+                    type="tel"
+                    id="cl_mobile"
+                    placeholder="07xxx xxxxxx"
+                    speed-bind-validate="MobileNumber"
+                    data-validate="required|phone"
+                    maxLength={20}
+                  />
+                  <span className="field-error" data-error-for="cl_mobile" />
+                </div>
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="cl_dob">Date of birth</label>
+                  <input
+                    type="date"
+                    id="cl_dob"
+                    speed-bind="DOB"
+                    data-validate="dob"
+                  />
+                  <span className="field-error" data-error-for="cl_dob" />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="cl_nationality">Nationality</label>
+                  <select id="cl_nationality" speed-bind="Nationality">
+                    <option value="">Select country…</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="cl_maritalStatus">Marital status</label>
                   <select id="cl_maritalStatus" speed-bind="MaritalStatus">
-                    <option value="">Select...</option>
+                    <option value="">Select…</option>
                     <option value="Single">Single</option>
                     <option value="Married">Married</option>
                     <option value="Divorced">Divorced</option>
@@ -86,14 +116,10 @@ export default class NewClient extends React.Component<{}, {}> {
                     <option value="Civil Partnership">Civil Partnership</option>
                   </select>
                 </div>
-              </div>
-
-              <div className="form-row">
-
                 <div className="form-group">
-                  <label>Contact Preference</label>
+                  <label htmlFor="cl_contactPreference">Contact preference</label>
                   <select id="cl_contactPreference" speed-bind="ContactPreference">
-                    <option value="">Select...</option>
+                    <option value="">Select…</option>
                     <option value="Email">Email</option>
                     <option value="Mobile">Mobile</option>
                     <option value="Phone">Phone</option>
@@ -101,229 +127,78 @@ export default class NewClient extends React.Component<{}, {}> {
                   </select>
                 </div>
               </div>
-            </div>
 
-            {/* Contact Details */}
-            <div className="form-section">
-              <div className="form-section-title">Contact Information</div>
 
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Mobile Number</label>
-                  <input type="tel" id="cl_mobile"
-                    speed-bind="MobileNumber"
-                    placeholder="Enter value here"
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label>Home Number</label>
-                  <input type="tel" id="cl_homePhone"
-                    speed-bind="HomePhone"
-                    placeholder="Enter value here"
-                  />
-                </div>
-              </div>
-
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Work Number</label>
-                  <input type="tel" id="cl_workPhone"
-                    speed-bind="WorkNumber"
-                    placeholder="Enter value here"
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label>Email Address</label>
-                  <input type="email" id="cl_email"
-                    speed-bind="EmailAddress"
-                    placeholder="eg. name@mail.com"
-                  />
-                </div>
-              </div>
-
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Residential Address</label>
-                  <input type="text" id="cl_residentialAddress"
+              <div className="form-row single">
+                <div className="form-group address-autocomplete-group">
+                  <label htmlFor="cl_residentialAddress">
+                    Residential address
+                  </label>
+                  <input
+                    type="text"
+                    id="cl_residentialAddress"
                     speed-bind="ResidentialAddress"
-                    placeholder="Enter text here"
+                    data-validate="text"
+                    placeholder="Start typing an address…"
+                    maxLength={250}
+                    autoComplete="off"
                   />
+                  <div
+                    id="residentialAddressSuggestions"
+                    className="address-suggestions"
+                  />
+                  <span className="field-hint">
+                    Suggestions use OpenStreetMap (free). Pick one or type freely.
+                  </span>
                 </div>
+              </div>
 
+              <div className="form-row single">
                 <div className="form-group">
-                  <label>Correspondence Address</label>
-                  <input type="text" id="cl_correspondenceAddress"
+                  <label className="checkbox-label" htmlFor="cl_sameAddress">
+                    <input type="checkbox" id="cl_sameAddress" />
+                    <span>Correspondence address is the same as residential</span>
+                  </label>
+                </div>
+              </div>
+
+              <div className="form-row single" id="correspondenceAddressRow">
+                <div className="form-group address-autocomplete-group">
+                  <label htmlFor="cl_correspondenceAddress">
+                    Correspondence address
+                  </label>
+                  <input
+                    type="text"
+                    id="cl_correspondenceAddress"
                     speed-bind="CorrespondenceAddress"
-                    placeholder="Enter text here"
+                    data-validate="text"
+                    placeholder="Start typing an address…"
+                    maxLength={250}
+                    autoComplete="off"
+                  />
+                  <div
+                    id="correspondenceAddressSuggestions"
+                    className="address-suggestions"
                   />
                 </div>
               </div>
             </div>
 
-            {/* Employment Information */}
-
-            <div className="form-section">
-              <div className="form-section-title">Employment Information</div>
-
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Employment Status</label>
-                  <select id="cl_employmentStatus" speed-bind="EmploymentStatus">
-                    <option value="">Select...</option>
-                    <option value="Employed">Employed</option>
-                    <option value="Self-Employed">Self-Employed</option>
-                    <option value="Unemployed">Unemployed</option>
-                    <option value="Retired">Retired</option>
-                    <option value="Student">Student</option>
-                  </select>
-                </div>
-
-                <div className="form-group">
-                  <label>Employer Details</label>
-                  <input type="text" id="cl_employer" 
-                    speed-bind="EmployerDetails"
-                    placeholder="Enter text here"
-                  />
-                </div>
-              </div>
-
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Job Title</label>
-                  <input type="text" id="cl_jobTitle"
-                    speed-bind="JobTitle"
-                    placeholder="Enter text here"
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label>Annual Income</label>
-                  <input type="number" id="cl_annualIncome" 
-                    speed-bind="AnnualIncome"
-                    placeholder="Enter value here"
-                  />
-                </div>
-              </div>
-
-              <div className="form-row single">
-                <div className="form-group">
-                  <label>Additional Income</label>
-                  <input type="number" id="cl_additionalIncome"
-                    speed-bind="AdditionalIncome"
-                    placeholder="Enter value here"
-                  />
-                </div>
-              </div>
+            {/* Advanced sections kept in DOM but hidden — for later */}
+            <div id="advancedInfoSection" style={{ display: "none" }} aria-hidden="true">
+              <input type="hidden" id="cl_niNumber" speed-bind="NIN" />
             </div>
 
-            {/* Financial Information */}
-            <div className="form-section">
-              <div className="form-section-title">Financial Information</div>
-
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Credit Profile Indicators</label>
-                  <textarea id="cl_creditProfile" rows={3}
-                    speed-bind="CreditProfileIndicator"
-                    placeholder="Enter text here"
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label>Existing Mortgages</label>
-                  <input type="text" id="cl_existingMortgages"
-                    speed-bind="ExistingMortgages"
-                    placeholder="Enter text here"
-                  />
-                </div>
-              </div>
-
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Loans</label>
-                  <input type="text" id="cl_loans"
-                    speed-bind="Loans"
-                    placeholder="Enter text here"
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label>Credit Commitments</label>
-                  <input type="number" id="cl_creditCommitments"
-                    speed-bind="CreditCommitments"
-                    placeholder="Enter value here"
-                  />
-                </div>
-              </div>
-
-              <div className="form-row single">
-                <div className="form-group">
-                  <label>Monthly Expenditure</label>
-                  <input type="number" id="cl_monthlyExpenditure"
-                    speed-bind="MonthlyExpenditure"
-                    placeholder="Enter value here"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Protection Information */}
-            <div className="form-section">
-              <div className="form-section-title">Protection Information</div>
-
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Existing Life Insurance</label>
-                  <select id="cl_lifeInsurance" speed-bind="ExistingLifeInsurance">
-                    <option value="">Select...</option>
-                    <option value="Yes">Yes</option>
-                    <option value="No">No</option>
-                  </select>
-                </div>
-
-                <div className="form-group">
-                  <label>Critical Illness Cover</label>
-                  <select id="cl_criticalIllness" speed-bind="CriticalIllnessCover">
-                    <option value="">Select...</option>
-                    <option value="Yes">Yes</option>
-                    <option value="No">No</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Income Protection</label>
-                  <select id="cl_incomeProtection" speed-bind="IncomeProtection">
-                    <option value="">Select...</option>
-                    <option value="Yes">Yes</option>
-                    <option value="No">No</option>
-                  </select>
-                </div>
-
-                <div className="form-group">
-                  <label>Family Protection Arrangements</label>
-                  <textarea id="cl_familyProtection" rows={3}
-                    placeholder="Enter text here"
-                    speed-bind="FamilyProtectionArrangements"
-                  />
-                </div>
-              </div>
-            </div>
-            {/* Action Buttons */}
             <div className="form-footer">
               <a href="#/clients" className="btn btn-secondary">
-                Back
+                Cancel
               </a>
-              {/* <button className="btn btn-primary">Create Case →</button> */}
               <ClientButton
                 clax="btn btn-primary"
                 func="NewClientComponent.confirmSubmit"
                 prop="NewClient"
-                >
-                Create Client →
+              >
+                Save client
               </ClientButton>
             </div>
           </div>
@@ -333,6 +208,6 @@ export default class NewClient extends React.Component<{}, {}> {
   }
 
   public componentDidMount(): void {
-    window.loadNewClientComponent();
+    (window as any).loadNewClientComponent();
   }
 }
