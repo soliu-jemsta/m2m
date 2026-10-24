@@ -29,13 +29,16 @@ const TYPES_BY_CATEGORY = {
         { value: "Right to Buy", text: "Right to Buy" },
     ],
     P4L: [
-        { value: "Protection Only", text: "Protection Only" },
+        { value: "Business Protection", text: "Business Protection" },
         { value: "Life Insurance", text: "Life Insurance" },
         { value: "Critical Illness Cover", text: "Critical Illness Cover" },
         { value: "Income Protection", text: "Income Protection" },
     ],
     GI: [
-        { value: "General Insurance", text: "General Insurance" },
+        { value: "Buildings Only", text: "Buildings Only" },
+        { value: "Content Only", text: "Content Only" },
+        { value: "Buildings and Content Insurance", text: "Buildings and Content Insurance" },
+        { value: "Landlord Insurance", text: "Landlord Insurance" },
     ],
 };
 
@@ -221,8 +224,8 @@ const FIELD_CONFIG = {
         ]),
     },
 
-    "Protection Only": {
-        title: "Protection Enquiry Details",
+    "Business Protection": {
+        title: "Business Protection Enquiry Details",
         fields: pick(P4L_FIELD_POOL, [
             ["PolicyType", { required: true }],
             ["SumAssured", { required: true }],

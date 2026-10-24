@@ -1,10 +1,11 @@
 /**
  * Create Case
  * ───────────
- * - Select existing client → load & edit basic info
- * - Multi-select case types (MORTGAGE / P4L / GI)
+ * - Select one or more clients → load & edit basic info for each
+ * - Category → Type cascade
  * - Type-specific field panels are placeholders until field specs exist
- * - On save: update client basic fields, then create one case per selected type
+ * - On save: update all selected clients, then create one case
+ *   (primary = first client; joint names reflected in Title)
  */
 
 loadNewCaseComponent = function () {
@@ -26,14 +27,14 @@ MainApplication.NewCaseComponent.ApplicationDetails = function () {
   this.itemId = null;
   this.mode = null;
   this.requestDetails = {};
-  this.selectedClientId = null;
-  this.loadedClient = null;
-  this.selectedCaseTypes = [];
+  /** @type {Array<{ID:number, data:object}>} */
+  this.selectedClients = [];
+  this.applicationType = null;
+  this.caseSubType = null;
 };
 
 function whenNewCaseLoaded() {
   globalDefinitions.callLoader();
-  
   $spcontext.assignAttributes();
   MainApplication.CurrentPageSubmitFunction =
     MainApplication.NewCaseComponent.confirmSubmit;
@@ -44,41 +45,16 @@ function whenNewCaseLoaded() {
     window.location.href
   );
 
-  // Reuse helpers from newclient.js when available
-  if (typeof populateNationalityDropdown === "function") {
-    populateNationalityDropdown();
-  }
-  if (typeof bindAddressAutocomplete === "function") {
-    bindAddressAutocomplete(
-      "cl_residentialAddress",
-      "residentialAddressSuggestions"
-    );
-    bindAddressAutocomplete(
-      "cl_correspondenceAddress",
-      "correspondenceAddressSuggestions"
-    );
-  }
-  if (typeof bindSameAsResidential === "function") {
-    bindSameAsResidential();
-  }
-
-  
-  MainApplication.loadClientDetails(
-    populateCaseClientSelect()
-  );
+  populateCaseClientSelect();
   bindCaseClientSearch();
   populateAdviserSelect();
-  bindCaseTypeToggles();
+  bindCategoryTypeCascade();
+  refreshClientSelectionStatus();
 
-  if (window.ClientFormUtils) {
-    document.querySelectorAll("[data-validate]").forEach(function (el) {
-      el.addEventListener("input", function () {
-        ClientFormUtils.clearFieldError(el.id);
-      });
-      el.addEventListener("change", function () {
-        ClientFormUtils.clearFieldError(el.id);
-      });
-    });
+  // Surface current max on the page hint
+  var maxHint = document.getElementById("caseClientMaxHint");
+  if (maxHint) {
+    maxHint.textContent = String(maxCaseClients());
   }
 
   setTimeout(function () {
@@ -91,6 +67,70 @@ function clientsListName() {
     (configProperties.CLIENTSLIST && configProperties.CLIENTSLIST.setting) ||
     "ClientsList"
   );
+}
+
+/**
+ * Maximum clients that can be attached to one case.
+ * Override via config list item title MAXCASECLIENTS (setting = number).
+ * Default: 2 (typical joint application).
+ */
+function maxCaseClients() {
+  var fallback = 2;
+  try {
+    if (
+      typeof configProperties !== "undefined" &&
+      configProperties.MAXCASECLIENTS &&
+      configProperties.MAXCASECLIENTS.setting != null &&
+      configProperties.MAXCASECLIENTS.setting !== ""
+    ) {
+      var n = parseInt(configProperties.MAXCASECLIENTS.setting, 10);
+      if (isFinite(n) && n >= 1) return n;
+    }
+  } catch (e) {}
+  return fallback;
+}
+
+function isAtClientLimit() {
+  return AppRequest.selectedClients.length >= maxCaseClients();
+}
+
+function updateClientPickerAvailability() {
+  var atLimit = isAtClientLimit();
+  var search = document.getElementById("caseClientSearch");
+  var sel = document.getElementById("caseClientSelect");
+  if (search) {
+    search.disabled = atLimit;
+    search.placeholder = atLimit
+      ? "Maximum of " + maxCaseClients() + " clients reached"
+      : "Start typing name or email…";
+  }
+  if (sel) {
+    sel.disabled = atLimit;
+  }
+}
+
+function refreshClientSelectionStatus() {
+  var status = document.getElementById("caseClientStatus");
+  var count = AppRequest.selectedClients.length;
+  var max = maxCaseClients();
+  if (!status) return;
+  if (!count) {
+    status.textContent =
+      "No clients selected yet. You can add up to " + max + ".";
+  } else if (count >= max) {
+    status.textContent =
+      count +
+      " of " +
+      max +
+      " clients selected (maximum reached). First is primary.";
+  } else {
+    status.textContent =
+      count +
+      " of " +
+      max +
+      " clients selected. First is treated as primary.";
+  }
+  updateClientPickerAvailability();
 }
 
 function escapeHtml(str) {
@@ -108,7 +148,7 @@ function trim(v) {
   return v == null ? "" : String(v).trim();
 }
 
-/* ── Client picker ───────────────────────────────────────── */
+/* ── Client multi-select ─────────────────────────────────── */
 
 function populateCaseClientSelect() {
   var sel = document.getElementById("caseClientSelect");
@@ -118,7 +158,7 @@ function populateCaseClientSelect() {
     return String(a.Title || "").localeCompare(String(b.Title || ""));
   });
 
-  sel.innerHTML = '<option value="">Select a client…</option>';
+  sel.innerHTML = '<option value="">Select a client to add…</option>';
   list.forEach(function (c) {
     if (!c.ID) return;
     var opt = document.createElement("option");
@@ -129,7 +169,10 @@ function populateCaseClientSelect() {
   });
 
   sel.addEventListener("change", function () {
-    if (sel.value) loadCaseClientById(sel.value);
+    if (sel.value) {
+      addCaseClientById(sel.value);
+      sel.value = "";
+    }
   });
 }
 
@@ -174,11 +217,9 @@ function bindCaseClientSearch() {
               "</span>"
             : "");
         row.addEventListener("click", function () {
-          input.value = c.Title || c.Email || "";
+          input.value = "";
           results.innerHTML = "";
-          var sel = document.getElementById("caseClientSelect");
-          if (sel) sel.value = String(c.ID);
-          loadCaseClientById(c.ID);
+          addCaseClientById(c.ID);
         });
         results.appendChild(row);
       });
@@ -186,8 +227,34 @@ function bindCaseClientSearch() {
   });
 }
 
-function loadCaseClientById(id) {
+function isClientSelected(id) {
+  return AppRequest.selectedClients.some(function (c) {
+    return String(c.ID) === String(id);
+  });
+}
+
+function addCaseClientById(id) {
   var status = document.getElementById("caseClientStatus");
+  if (isClientSelected(id)) {
+    if (status) status.textContent = "That client is already added.";
+    return;
+  }
+
+  if (isAtClientLimit()) {
+    if (status) {
+      status.textContent =
+        "Maximum of " + maxCaseClients() + " clients allowed on a case.";
+    }
+    try {
+      globalDefinitions.HandlerError(
+        "You can only select up to " + maxCaseClients() + " clients.",
+        false
+      );
+    } catch (e) {}
+    updateClientPickerAvailability();
+    return;
+  }
+
   if (status) status.textContent = "Loading client…";
   globalDefinitions.callLoader();
 
@@ -203,6 +270,16 @@ function loadCaseClientById(id) {
     caml,
     function (itemCollection) {
       try {
+        // Re-check limit in case of concurrent adds
+        if (isAtClientLimit()) {
+          if (status) {
+            status.textContent =
+              "Maximum of " + maxCaseClients() + " clients allowed on a case.";
+          }
+          globalDefinitions.closeLoader();
+          return;
+        }
+
         var count =
           typeof itemCollection.get_count === "function"
             ? itemCollection.get_count()
@@ -214,17 +291,11 @@ function loadCaseClientById(id) {
         }
 
         var mapped = mapSpClientItem(itemCollection.getItemAtIndex(0));
-        AppRequest.selectedClientId = mapped.ID;
-        AppRequest.loadedClient = mapped;
-
-        populateClientBasicForm(mapped);
-        showCaseSections(true);
-
-        if (status) {
-          status.textContent =
-            "Selected: " +
-            (mapped.Title || mapped.EmailAddress || "#" + mapped.ID);
-        }
+        AppRequest.selectedClients.push({ ID: mapped.ID, data: mapped });
+        renderSelectedClientChips();
+        renderClientFormCard(mapped);
+        showCaseSetupIfReady();
+        refreshClientSelectionStatus();
       } catch (e) {
         console.error("[NewCase] load client error", e);
         if (status) status.textContent = "Could not read client data.";
@@ -239,6 +310,53 @@ function loadCaseClientById(id) {
       globalDefinitions.closeLoader();
     }
   );
+}
+
+function removeCaseClient(id) {
+  AppRequest.selectedClients = AppRequest.selectedClients.filter(function (c) {
+    return String(c.ID) !== String(id);
+  });
+  var card = document.getElementById("clientCard_" + id);
+  if (card && card.parentNode) card.parentNode.removeChild(card);
+  renderSelectedClientChips();
+  showCaseSetupIfReady();
+  refreshClientSelectionStatus();
+}
+
+function renderSelectedClientChips() {
+  var host = document.getElementById("selectedClientChips");
+  if (!host) return;
+  host.innerHTML = "";
+
+  AppRequest.selectedClients.forEach(function (entry, index) {
+    var d = entry.data || {};
+    var chip = document.createElement("span");
+    chip.className = "client-chip";
+    if (index === 0) chip.classList.add("primary");
+    chip.innerHTML =
+      '<span class="client-chip-label">' +
+      (index === 0 ? "Primary · " : "") +
+      escapeHtml(d.Title || d.EmailAddress || "#" + entry.ID) +
+      "</span>" +
+      '<button type="button" class="client-chip-remove" aria-label="Remove">&times;</button>';
+    chip
+      .querySelector(".client-chip-remove")
+      .addEventListener("click", function () {
+        removeCaseClient(entry.ID);
+      });
+    host.appendChild(chip);
+  });
+}
+
+function showCaseSetupIfReady() {
+  var setup = document.getElementById("caseSetupSection");
+  if (setup) {
+    setup.style.display = AppRequest.selectedClients.length ? "" : "none";
+  }
+  if (!AppRequest.selectedClients.length) {
+    var detail = document.getElementById("caseTypeDetailSection");
+    if (detail) detail.style.display = "none";
+  }
 }
 
 function mapSpClientItem(spItem) {
@@ -284,50 +402,363 @@ function mapSpClientItem(spItem) {
     Nationality: field("Nationality") || "",
     MaritalStatus: field("MaritalStatus") || "",
     ContactPreference: field("ContactPreference") || "",
-    HomePhone: field("HomePhone") || "",
     ResidentialAddress: field("ResidentialAddress") || "",
     CorrespondenceAddress: field("CorrespondenceAddress") || "",
   };
 }
 
-function setField(id, value) {
-  var el = document.getElementById(id);
-  if (!el) return;
-  el.value = value != null ? String(value) : "";
-  if (window.ClientFormUtils) ClientFormUtils.clearFieldError(id);
+/* ── Per-client basic form card ──────────────────────────── */
+
+function fieldId(clientId, name) {
+  return "cl_" + clientId + "_" + name;
 }
 
-function populateClientBasicForm(item) {
-  setField("cl_firstName", item.FirstName);
-  setField("cl_lastName", item.LastName);
-  setField("cl_email", item.EmailAddress);
-  setField("cl_mobile", item.MobileNumber);
-  setField("cl_dob", item.DOB);
-  setField("cl_nationality", item.Nationality);
-  setField("cl_maritalStatus", item.MaritalStatus);
-  setField("cl_contactPreference", item.ContactPreference);
-  setField("cl_homePhone", item.HomePhone);
-  setField("cl_residentialAddress", item.ResidentialAddress);
-  setField("cl_correspondenceAddress", item.CorrespondenceAddress);
+function renderClientFormCard(item) {
+  var host = document.getElementById("selectedClientsForms");
+  if (!host) return;
 
-  var chk = document.getElementById("cl_sameAddress");
-  if (chk) {
-    var same =
-      item.ResidentialAddress &&
-      item.ResidentialAddress === item.CorrespondenceAddress;
-    chk.checked = !!same;
-    if (typeof bindSameAsResidential === "function") {
-      // re-apply readonly state
-      chk.dispatchEvent(new Event("change"));
+  var existing = document.getElementById("clientCard_" + item.ID);
+  if (existing) existing.parentNode.removeChild(existing);
+
+  var index = AppRequest.selectedClients.findIndex(function (c) {
+    return String(c.ID) === String(item.ID);
+  });
+  var isPrimary = index === 0;
+
+  var section = document.createElement("div");
+  section.className = "form-section client-basic-card";
+  section.id = "clientCard_" + item.ID;
+  section.setAttribute("data-client-id", String(item.ID));
+
+  var titleText =
+    (isPrimary ? "Primary client · " : "Client · ") +
+    (item.Title || item.EmailAddress || "#" + item.ID);
+
+  section.innerHTML =
+    '<div class="form-section-title">' +
+    escapeHtml(titleText) +
+    '</div>' +
+    '<p class="client-type-hint">Review and update if needed. Changes are saved when you create the case.</p>' +
+    '<div class="form-row">' +
+    fieldGroupHtml(item.ID, "firstName", "First name", "text", true, "required|name", item.FirstName) +
+    fieldGroupHtml(item.ID, "lastName", "Last name", "text", true, "required|name", item.LastName) +
+    "</div>" +
+    '<div class="form-row">' +
+    fieldGroupHtml(item.ID, "email", "Email address", "email", true, "required|email", item.EmailAddress) +
+    fieldGroupHtml(item.ID, "mobile", "Mobile number", "tel", true, "required|phone", item.MobileNumber) +
+    "</div>" +
+    '<div class="form-row">' +
+    fieldGroupHtml(item.ID, "dob", "Date of birth", "date", false, "dob", item.DOB) +
+    nationalityGroupHtml(item.ID, item.Nationality) +
+    "</div>" +
+    '<div class="form-row">' +
+    maritalGroupHtml(item.ID, item.MaritalStatus) +
+    contactPrefGroupHtml(item.ID, item.ContactPreference) +
+    "</div>" +
+    '<div class="form-row">' +
+    addressGroupHtml(item.ID, "residentialAddress", "Residential address", item.ResidentialAddress) +
+    "</div>" +
+    '<div class="form-row single">' +
+    '<div class="form-group"><label class="checkbox-label" for="' +
+    fieldId(item.ID, "sameAddress") +
+    '"><input type="checkbox" id="' +
+    fieldId(item.ID, "sameAddress") +
+    '"' +
+    (item.ResidentialAddress &&
+    item.ResidentialAddress === item.CorrespondenceAddress
+      ? " checked"
+      : "") +
+    ' /><span>Correspondence address is the same as residential</span></label></div></div>' +
+    '<div class="form-row single" id="' +
+    fieldId(item.ID, "correspondenceRow") +
+    '">' +
+    addressGroupHtml(
+      item.ID,
+      "correspondenceAddress",
+      "Correspondence address",
+      item.CorrespondenceAddress
+    ) +
+    "</div>";
+
+  host.appendChild(section);
+
+  // Nationality options
+  if (typeof populateNationalityDropdown === "function") {
+    // global helper fills #cl_nationality — we need per-client
+    fillNationalitySelect(
+      document.getElementById(fieldId(item.ID, "nationality")),
+      item.Nationality
+    );
+  } else {
+    fillNationalitySelect(
+      document.getElementById(fieldId(item.ID, "nationality")),
+      item.Nationality
+    );
+  }
+
+  // Address autocomplete
+  if (typeof bindAddressAutocomplete === "function") {
+    // bindAddressAutocomplete expects fixed ids — use local bind
+  }
+  bindClientAddressAutocomplete(
+    fieldId(item.ID, "residentialAddress"),
+    fieldId(item.ID, "residentialSuggestions")
+  );
+  bindClientAddressAutocomplete(
+    fieldId(item.ID, "correspondenceAddress"),
+    fieldId(item.ID, "correspondenceSuggestions")
+  );
+  bindClientSameAsResidential(item.ID);
+
+  // Clear validation on input
+  section.querySelectorAll("[data-validate]").forEach(function (el) {
+    el.addEventListener("input", function () {
+      if (window.ClientFormUtils) ClientFormUtils.clearFieldError(el.id);
+    });
+    el.addEventListener("change", function () {
+      if (window.ClientFormUtils) ClientFormUtils.clearFieldError(el.id);
+    });
+  });
+}
+
+function fieldGroupHtml(clientId, name, label, type, required, rules, value) {
+  var id = fieldId(clientId, name);
+  return (
+    '<div class="form-group">' +
+    "<label for=\"" +
+    id +
+    '">' +
+    escapeHtml(label) +
+    (required ? ' <span class="req">*</span>' : "") +
+    "</label>" +
+    '<input type="' +
+    type +
+    '" id="' +
+    id +
+    '" data-validate="' +
+    (rules || "") +
+    '" value="' +
+    escapeHtml(value || "") +
+    '" maxLength="250" />' +
+    '<span class="field-error" data-error-for="' +
+    id +
+    '"></span></div>'
+  );
+}
+
+function addressGroupHtml(clientId, name, label, value) {
+  var id = fieldId(clientId, name);
+  var sugId =
+    name === "residentialAddress"
+      ? fieldId(clientId, "residentialSuggestions")
+      : fieldId(clientId, "correspondenceSuggestions");
+  return (
+    '<div class="form-group address-autocomplete-group">' +
+    "<label for=\"" +
+    id +
+    '">' +
+    escapeHtml(label) +
+    "</label>" +
+    '<input type="text" id="' +
+    id +
+    '" placeholder="Start typing an address…" maxLength="250" autocomplete="off" value="' +
+    escapeHtml(value || "") +
+    '" />' +
+    '<div id="' +
+    sugId +
+    '" class="address-suggestions"></div></div>'
+  );
+}
+
+function nationalityGroupHtml(clientId, value) {
+  var id = fieldId(clientId, "nationality");
+  return (
+    '<div class="form-group"><label for="' +
+    id +
+    '">Nationality</label>' +
+    '<select id="' +
+    id +
+    '"><option value="">Select country…</option></select></div>'
+  );
+}
+
+function maritalGroupHtml(clientId, value) {
+  var id = fieldId(clientId, "maritalStatus");
+  var opts = ["", "Single", "Married", "Divorced", "Widowed", "Civil Partnership"];
+  var html =
+    '<div class="form-group"><label for="' +
+    id +
+    '">Marital status</label><select id="' +
+    id +
+    '">';
+  opts.forEach(function (o) {
+    html +=
+      '<option value="' +
+      o +
+      '"' +
+      (o === (value || "") ? " selected" : "") +
+      ">" +
+      (o || "Select…") +
+      "</option>";
+  });
+  return html + "</select></div>";
+}
+
+function contactPrefGroupHtml(clientId, value) {
+  var id = fieldId(clientId, "contactPreference");
+  var opts = ["", "Email", "Mobile", "Phone", "SMS"];
+  var html =
+    '<div class="form-group"><label for="' +
+    id +
+    '">Contact preference</label><select id="' +
+    id +
+    '">';
+  opts.forEach(function (o) {
+    html +=
+      '<option value="' +
+      o +
+      '"' +
+      (o === (value || "") ? " selected" : "") +
+      ">" +
+      (o || "Select…") +
+      "</option>";
+  });
+  return html + "</select></div>";
+}
+
+function fillNationalitySelect(sel, current) {
+  if (!sel) return;
+  var countries =
+    typeof WORLD_COUNTRIES !== "undefined" && WORLD_COUNTRIES.length
+      ? WORLD_COUNTRIES
+      : [
+          "United Kingdom",
+          "Ireland",
+          "United States",
+          "Canada",
+          "Australia",
+          "India",
+          "Nigeria",
+          "South Africa",
+        ];
+  var preferred = [
+    "United Kingdom",
+    "Ireland",
+    "United States",
+    "Canada",
+    "Australia",
+    "India",
+    "Nigeria",
+    "South Africa",
+  ];
+  sel.innerHTML = '<option value="">Select country…</option>';
+  preferred.forEach(function (c) {
+    if (countries.indexOf(c) < 0) return;
+    var o = document.createElement("option");
+    o.value = c;
+    o.textContent = c;
+    if (c === current) o.selected = true;
+    sel.appendChild(o);
+  });
+  var sep = document.createElement("option");
+  sep.disabled = true;
+  sep.textContent = "──────────";
+  sel.appendChild(sep);
+  countries.forEach(function (c) {
+    if (preferred.indexOf(c) >= 0) return;
+    var o = document.createElement("option");
+    o.value = c;
+    o.textContent = c;
+    if (c === current) o.selected = true;
+    sel.appendChild(o);
+  });
+}
+
+function bindClientAddressAutocomplete(inputId, suggestionsId) {
+  var input = document.getElementById(inputId);
+  var box = document.getElementById(suggestionsId);
+  if (!input || !box) return;
+
+  var debounceTimer = null;
+  var lastQuery = "";
+
+  function hide() {
+    box.innerHTML = "";
+    box.classList.remove("open");
+  }
+
+  function showItems(items) {
+    box.innerHTML = "";
+    if (!items || !items.length) {
+      hide();
+      return;
+    }
+    items.forEach(function (item) {
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "address-suggestion-item";
+      btn.textContent = item.display_name;
+      btn.addEventListener("mousedown", function (e) {
+        e.preventDefault();
+        input.value = item.display_name;
+        hide();
+      });
+      box.appendChild(btn);
+    });
+    box.classList.add("open");
+  }
+
+  input.addEventListener("input", function () {
+    var q = trim(input.value);
+    clearTimeout(debounceTimer);
+    if (q.length < 3) {
+      hide();
+      return;
+    }
+    debounceTimer = setTimeout(function () {
+      if (q === lastQuery) return;
+      lastQuery = q;
+      if (typeof fetchNominatim === "function") {
+        fetchNominatim(q, function (results) {
+          if (trim(input.value) !== q) return;
+          showItems(results);
+        });
+      }
+    }, 350);
+  });
+
+  input.addEventListener("blur", function () {
+    setTimeout(hide, 200);
+  });
+}
+
+function bindClientSameAsResidential(clientId) {
+  var chk = document.getElementById(fieldId(clientId, "sameAddress"));
+  var res = document.getElementById(fieldId(clientId, "residentialAddress"));
+  var cor = document.getElementById(fieldId(clientId, "correspondenceAddress"));
+  var row = document.getElementById(fieldId(clientId, "correspondenceRow"));
+  if (!chk || !cor) return;
+
+  function apply() {
+    if (chk.checked) {
+      cor.value = res ? res.value : "";
+      cor.readOnly = true;
+      cor.classList.add("is-readonly");
+      if (row) row.style.opacity = "0.7";
+    } else {
+      cor.readOnly = false;
+      cor.classList.remove("is-readonly");
+      if (row) row.style.opacity = "";
     }
   }
-}
 
-function showCaseSections(show) {
-  var basic = document.getElementById("caseClientBasicSection");
-  var setup = document.getElementById("caseSetupSection");
-  if (basic) basic.style.display = show ? "" : "none";
-  if (setup) setup.style.display = show ? "" : "none";
+  chk.addEventListener("change", apply);
+  if (res) {
+    res.addEventListener("input", function () {
+      if (chk.checked) cor.value = res.value;
+    });
+  }
+  apply();
 }
 
 /* ── Advisers ────────────────────────────────────────────── */
@@ -352,66 +783,149 @@ function populateAdviserSelect() {
   });
 }
 
-/* ── Case types ──────────────────────────────────────────── */
+/* ── Category → Type cascade ─────────────────────────────── */
 
-function bindCaseTypeToggles() {
-  document.querySelectorAll('input[name="caseType"]').forEach(function (cb) {
-    cb.addEventListener("change", syncCaseTypePanels);
-  });
-  syncCaseTypePanels();
-}
+var TYPES_BY_CATEGORY = {
+  MORTGAGE: [
+    { value: "Residential Purchase", text: "Residential Purchase" },
+    { value: "Residential Remortgage", text: "Residential Remortgage" },
+    { value: "Buy-to-Let Purchase", text: "Buy-to-Let Purchase" },
+    { value: "Buy-to-Let Remortgage", text: "Buy-to-Let Remortgage" },
+    { value: "Product Transfer", text: "Product Transfer" },
+    { value: "Shared Ownership", text: "Shared Ownership" },
+    { value: "Bridging", text: "Bridging" },
+    { value: "Second Charge", text: "Second Charge" },
+    { value: "Right to Buy", text: "Right to Buy" },
+  ],
+  P4L: [
+    { value: "Business Protection", text: "Business Protection" },
+    { value: "Life Insurance", text: "Life Insurance" },
+    { value: "Critical Illness Cover", text: "Critical Illness Cover" },
+    { value: "Income Protection", text: "Income Protection" },
+  ],
+  GI: [
+    { value: "Buildings Only", text: "Buildings Only" },
+    { value: "Content Only", text: "Content Only" },
+    {
+      value: "Buildings and Content Insurance",
+      text: "Buildings and Content Insurance",
+    },
+    { value: "Landlord Insurance", text: "Landlord Insurance" },
+  ],
+};
 
-function syncCaseTypePanels() {
-  var selected = [];
-  document.querySelectorAll('input[name="caseType"]').forEach(function (cb) {
-    var panel = document.getElementById("panel_" + cb.value);
-    if (cb.checked) {
-      selected.push(cb.value);
-      if (panel) panel.style.display = "";
-    } else {
-      if (panel) panel.style.display = "none";
+var CATEGORY_LABELS = {
+  MORTGAGE: "Mortgage",
+  P4L: "Protection for Life",
+  GI: "General Insurance",
+};
+
+function bindCategoryTypeCascade() {
+  var cat = document.getElementById("case_category");
+  var typ = document.getElementById("case_type");
+  if (!cat || !typ) return;
+
+  cat.addEventListener("change", function () {
+    var val = cat.value;
+    var cerr = document.querySelector('[data-error-for="case_category"]');
+    if (cerr) cerr.textContent = "";
+
+    typ.innerHTML = "";
+    if (!val || !TYPES_BY_CATEGORY[val]) {
+      typ.disabled = true;
+      typ.innerHTML = '<option value="">Select category first…</option>';
+      AppRequest.applicationType = null;
+      AppRequest.caseSubType = null;
+      updateTypeDetailPanel(null, null);
+      return;
     }
-  });
-  AppRequest.selectedCaseTypes = selected;
 
-  var err = document.querySelector('[data-error-for="caseTypeGrid"]');
-  if (err) err.textContent = "";
+    typ.disabled = false;
+    typ.innerHTML = '<option value="">Select type…</option>';
+    TYPES_BY_CATEGORY[val].forEach(function (t) {
+      var opt = document.createElement("option");
+      opt.value = t.value;
+      opt.textContent = t.text;
+      typ.appendChild(opt);
+    });
+    AppRequest.applicationType = val;
+    AppRequest.caseSubType = null;
+    updateTypeDetailPanel(val, null);
+  });
+
+  typ.addEventListener("change", function () {
+    var terr = document.querySelector('[data-error-for="case_type"]');
+    if (terr) terr.textContent = "";
+    AppRequest.caseSubType = typ.value || null;
+    updateTypeDetailPanel(AppRequest.applicationType, AppRequest.caseSubType);
+  });
 }
 
-function getSelectedCaseTypes() {
-  var out = [];
-  document.querySelectorAll('input[name="caseType"]:checked').forEach(function (cb) {
-    out.push(cb.value);
-  });
-  return out;
+function updateTypeDetailPanel(category, subType) {
+  var section = document.getElementById("caseTypeDetailSection");
+  var title = document.getElementById("caseTypeDetailTitle");
+  var body = document.getElementById("caseTypeDetailBody");
+  if (!section) return;
+
+  if (!category) {
+    section.style.display = "none";
+    return;
+  }
+
+  section.style.display = "";
+  var catLabel = CATEGORY_LABELS[category] || category;
+  if (title) {
+    title.textContent = subType
+      ? catLabel + " · " + subType
+      : catLabel + " details";
+  }
+  if (body) {
+    if (subType) {
+      body.innerHTML =
+        "<p>Fields for <strong>" +
+        escapeHtml(catLabel) +
+        " — " +
+        escapeHtml(subType) +
+        "</strong> will appear here once they are defined. Nothing is assumed yet.</p>";
+    } else {
+      body.innerHTML =
+        "<p>Select a type to continue. Type-specific fields will appear here once they are defined.</p>";
+    }
+  }
 }
 
-/* ── Collect client basic fields from form ───────────────── */
+/* ── Collect / validate all client forms ─────────────────── */
 
-function collectClientBasicFromForm() {
-  var ids = {
-    FirstName: "cl_firstName",
-    LastName: "cl_lastName",
-    EmailAddress: "cl_email",
-    MobileNumber: "cl_mobile",
-    DOB: "cl_dob",
-    Nationality: "cl_nationality",
-    MaritalStatus: "cl_maritalStatus",
-    ContactPreference: "cl_contactPreference",
-    HomePhone: "cl_homePhone",
-    ResidentialAddress: "cl_residentialAddress",
-    CorrespondenceAddress: "cl_correspondenceAddress",
+function val(id) {
+  var el = document.getElementById(id);
+  return el ? trim(el.value) : "";
+}
+
+function collectClientDataFromCard(clientId) {
+  var data = {
+    ID: clientId,
+    FirstName: val(fieldId(clientId, "firstName")),
+    LastName: val(fieldId(clientId, "lastName")),
+    EmailAddress: val(fieldId(clientId, "email")).toLowerCase(),
+    MobileNumber: val(fieldId(clientId, "mobile")),
+    DOB: val(fieldId(clientId, "dob")) || null,
+    Nationality: val(fieldId(clientId, "nationality")),
+    MaritalStatus: val(fieldId(clientId, "maritalStatus")),
+    ContactPreference: val(fieldId(clientId, "contactPreference")),
+    ResidentialAddress: val(fieldId(clientId, "residentialAddress")),
+    CorrespondenceAddress: val(fieldId(clientId, "correspondenceAddress")),
   };
-  var data = {};
-  Object.keys(ids).forEach(function (key) {
-    var el = document.getElementById(ids[key]);
-    data[key] = el ? trim(el.value) : "";
-  });
-  if (data.EmailAddress) data.EmailAddress = data.EmailAddress.toLowerCase();
   data.Title = trim(
     (data.FirstName || "") + (data.LastName ? " " + data.LastName : "")
   );
   return data;
+}
+
+function validateAllClientCards() {
+  if (!window.ClientFormUtils) return { ok: true, errors: [] };
+  var host = document.getElementById("selectedClientsForms");
+  if (!host) return { ok: true, errors: [] };
+  return ClientFormUtils.validateForm(host);
 }
 
 /* ── Submit ──────────────────────────────────────────────── */
@@ -429,30 +943,40 @@ MainApplication.NewCaseComponent.actionConfirmed = function () {
 MainApplication.NewCaseComponent.saveDataToList = function () {
   globalDefinitions.onActionClicked();
 
-  if (!AppRequest.selectedClientId) {
-    globalDefinitions.HandlerError("Please select a client first.", false);
+  if (!AppRequest.selectedClients.length) {
+    globalDefinitions.HandlerError(
+      "Please add at least one client.",
+      false
+    );
     globalDefinitions.onActionFailed();
     return;
   }
 
-  // Validate basic client fields
-  if (window.ClientFormUtils) {
-    var validation = ClientFormUtils.validateForm(
-      document.getElementById("caseClientBasicSection") || document
+  // Sync same-as-residential on each card
+  AppRequest.selectedClients.forEach(function (entry) {
+    var chk = document.getElementById(fieldId(entry.ID, "sameAddress"));
+    var res = document.getElementById(fieldId(entry.ID, "residentialAddress"));
+    var cor = document.getElementById(
+      fieldId(entry.ID, "correspondenceAddress")
     );
-    if (!validation.ok) {
-      var first = validation.errors[0];
-      globalDefinitions.HandlerError(
-        first ? "Please fix: " + first.message : "Please correct the client fields.",
-        false
-      );
-      globalDefinitions.onActionFailed();
-      if (first && first.id) {
-        var fel = document.getElementById(first.id);
-        if (fel) fel.focus();
-      }
-      return;
+    if (chk && chk.checked && res && cor) cor.value = res.value;
+  });
+
+  var validation = validateAllClientCards();
+  if (!validation.ok) {
+    var first = validation.errors[0];
+    globalDefinitions.HandlerError(
+      first
+        ? "Please fix client details: " + first.message
+        : "Please correct the client fields.",
+      false
+    );
+    globalDefinitions.onActionFailed();
+    if (first && first.id) {
+      var fel = document.getElementById(first.id);
+      if (fel) fel.focus();
     }
+    return;
   }
 
   var adviserSel = document.getElementById("case_adviser");
@@ -465,21 +989,29 @@ MainApplication.NewCaseComponent.saveDataToList = function () {
     return;
   }
 
-  var caseTypes = getSelectedCaseTypes();
-  if (!caseTypes.length) {
-    var terr = document.querySelector('[data-error-for="caseTypeGrid"]');
-    if (terr) terr.textContent = "Select at least one case type";
-    globalDefinitions.HandlerError("Select at least one case type.", false);
+  var catEl = document.getElementById("case_category");
+  var typEl = document.getElementById("case_type");
+  var category = catEl ? trim(catEl.value) : "";
+  var subType = typEl ? trim(typEl.value) : "";
+
+  if (!category) {
+    var cerr = document.querySelector('[data-error-for="case_category"]');
+    if (cerr) cerr.textContent = "Please select a category";
+    globalDefinitions.HandlerError("Please select a category.", false);
+    globalDefinitions.onActionFailed();
+    return;
+  }
+  if (!subType) {
+    var terr = document.querySelector('[data-error-for="case_type"]');
+    if (terr) terr.textContent = "Please select a type";
+    globalDefinitions.HandlerError("Please select a type.", false);
     globalDefinitions.onActionFailed();
     return;
   }
 
-  if (typeof syncCorrespondenceFromResidential === "function") {
-    syncCorrespondenceFromResidential();
-  }
-
-  var clientData = collectClientBasicFromForm();
-  clientData.ID = AppRequest.selectedClientId;
+  var clientsPayload = AppRequest.selectedClients.map(function (entry) {
+    return collectClientDataFromCard(entry.ID);
+  });
 
   var priorityEl = document.getElementById("case_priority");
   var priority = priorityEl ? priorityEl.value || "Normal" : "Normal";
@@ -492,81 +1024,89 @@ MainApplication.NewCaseComponent.saveDataToList = function () {
 
   globalDefinitions.callLoader();
 
-  // 1) Update client basic info
-  $spcontext.updateItems(
-    [clientData],
-    clientsListName(),
-    function () {
-      // 2) Create a case for each selected type (sequentially)
-      createCasesSequentially(
-        caseTypes,
-        {
-          clientData: clientData,
-          adviserEmail: adviserEmail,
-          adviserTitle: adviserTitle,
-          priority: priority,
-        },
-        function (err, createdIds) {
-          globalDefinitions.closeLoader();
-          if (err) {
-            globalDefinitions.HandlerError(
-              "Some cases may not have been created: " + err,
-              false
-            );
-            globalDefinitions.onActionFailed();
-            return;
-          }
-          var msg =
-            createdIds.length === 1
-              ? "Case created: " + createdIds[0]
-              : "Cases created: " + createdIds.join(", ");
-          globalDefinitions.HandlerSuccess(msg);
-          try {
-            globalDefinitions.AuditLogManager_SaveLog({
-              Action: "Created case(s) " + createdIds.join(", "),
-              Message: "Client #" + AppRequest.selectedClientId,
-            });
-          } catch (e) {}
-          globalDefinitions.onActionCompleted();
-          $spcontext.redirect("#/cases", false);
-        }
-      );
-    },
-    function (sender, args) {
+  // 1) Update all clients
+  updateClientsSequentially(clientsPayload, function (err) {
+    if (err) {
       globalDefinitions.closeLoader();
-      var msg =
-        (args && args.get_message && args.get_message()) ||
-        "Could not update client";
-      globalDefinitions.HandlerError(msg, false);
+      globalDefinitions.HandlerError(
+        "Could not update client(s): " + err,
+        false
+      );
       globalDefinitions.onActionFailed();
-    }
-  );
-};
-
-/**
- * Create one case per application type, sequentially.
- * Uses existing module lists + CASESLIST mirror pattern.
- */
-function createCasesSequentially(caseTypes, ctx, done) {
-  var created = [];
-  var index = 0;
-
-  function next() {
-    if (index >= caseTypes.length) {
-      done(null, created);
       return;
     }
-    var appType = caseTypes[index++];
-    createSingleCase(appType, ctx, function (err, caseId) {
-      if (err) {
-        done(err, created);
-        return;
-      }
-      if (caseId) created.push(caseId);
-      next();
-    });
-  }
 
+    var primary = clientsPayload[0];
+    var jointTitle = clientsPayload
+      .map(function (c) {
+        return c.Title || c.EmailAddress;
+      })
+      .filter(Boolean)
+      .join(" & ");
+
+    // 2) Create single case — primary client on person field
+    createSingleCase(
+      category,
+      {
+        clientData: primary,
+        jointTitle: jointTitle,
+        allClients: clientsPayload,
+        adviserEmail: adviserEmail,
+        adviserTitle: adviserTitle,
+        priority: priority,
+        subType: subType,
+      },
+      function (createErr, caseId) {
+        globalDefinitions.closeLoader();
+        if (createErr) {
+          globalDefinitions.HandlerError(
+            "Case could not be created: " + createErr,
+            false
+          );
+          globalDefinitions.onActionFailed();
+          return;
+        }
+        globalDefinitions.HandlerSuccess("Case created: " + caseId);
+        try {
+          globalDefinitions.AuditLogManager_SaveLog({
+            Action: "Created case " + caseId,
+            Message:
+              category +
+              " / " +
+              subType +
+              " · Clients: " +
+              jointTitle,
+          });
+        } catch (e) {}
+        globalDefinitions.onActionCompleted();
+        $spcontext.redirect("#/cases", false);
+      }
+    );
+  });
+};
+
+function updateClientsSequentially(list, done) {
+  var i = 0;
+  function next() {
+    if (i >= list.length) {
+      done(null);
+      return;
+    }
+    var item = list[i++];
+    $spcontext.updateItems(
+      [item],
+      clientsListName(),
+      function () {
+        next();
+      },
+      function (sender, args) {
+        done(
+          (args && args.get_message && args.get_message()) ||
+            "Update failed for client #" + item.ID
+        );
+      }
+    );
+  }
   next();
 }
 
@@ -594,12 +1134,33 @@ function createSingleCase(appType, ctx, callback) {
   var listName = resolved.listName;
   var codePrefix = resolved.codePrefix;
 
+  // ClientName / ClientEmail: semicolon-separated, primary first.
+  // Example Name:  "Jane Smith; John Doe"
+  // Example Email: "jane@example.com; john@example.com"
+  // Power Automate: split(ClientEmail, ';') then trim — index 0 = primary.
+  var clients = ctx.allClients && ctx.allClients.length
+    ? ctx.allClients
+    : ctx.clientData
+      ? [ctx.clientData]
+      : [];
+  var clientNames = clients
+    .map(function (c) {
+      return trim(c.Title || ((c.FirstName || "") + " " + (c.LastName || "")));
+    })
+    .filter(Boolean);
+  var clientEmails = clients
+    .map(function (c) {
+      return trim(c.EmailAddress || "").toLowerCase();
+    })
+    .filter(Boolean);
+
   var formData = {
     ApplicationType: appType,
     CasePriority: ctx.priority,
-    Title: ctx.clientData.Title || appType,
-    Client: ctx.clientData.Title,
-    Adviser: ctx.adviserTitle,
+    Title: ctx.jointTitle || clientNames.join(" & ") || appType,
+    ClientName: clientNames.join("; "),
+    ClientEmail: clientEmails.join("; "),
+    Adviser: ctx.adviserEmail,
     RequestCreated: $spcontext.serverDate
       ? $spcontext.serverDate()
       : new Date(),
@@ -610,14 +1171,29 @@ function createSingleCase(appType, ctx, callback) {
       ? $spcontext.serverDate()
       : new Date()
     ).getFullYear(),
-    // Type-specific fields: none yet — add when specs are known
   };
 
-  // Prefer person fields as email/login when the list expects that
-  try {
-    formData.Client = ctx.clientData.EmailAddress || ctx.clientData.Title;
-    formData.Adviser = ctx.adviserEmail;
-  } catch (e) {}
+  if (ctx.subType) {
+    if (appType === "MORTGAGE") formData.MortgageType = ctx.subType;
+    else if (appType === "P4L") formData.P4LType = ctx.subType;
+    else if (appType === "GI") formData.GIType = ctx.subType;
+  }
+
+
+  console.log("[NewCase] Creating module case", {
+    listName: listName,
+    codePrefix: codePrefix,
+    applicationType: appType,
+    subType: ctx.subType,
+    formData: formData,
+    ctxSummary: {
+      priority: ctx.priority,
+      adviserEmail: ctx.adviserEmail,
+      jointTitle: ctx.jointTitle,
+      primaryClient: ctx.clientData,
+      allClients: ctx.allClients,
+    },
+  });
 
   $spcontext.createItems(
     [formData],
@@ -630,6 +1206,12 @@ function createSingleCase(appType, ctx, callback) {
       ).getFullYear();
       var caseId = codePrefix + year + "-" + itemID;
 
+      console.log("[NewCase] Module case created", {
+        listName: listName,
+        itemID: itemID,
+        caseId: caseId,
+      });
+
       var updateObj = {
         ID: itemID,
         Year: year,
@@ -640,12 +1222,14 @@ function createSingleCase(appType, ctx, callback) {
         WorkflowRequestID: caseId,
       };
 
+      var casesListName = configProperties.CASESLIST.setting;
       var mirrorData = {
         CaseID: caseId,
         ApplicationType: appType,
-        Client: formData.Client,
+        ClientName: formData.ClientName,
+        ClientEmail: formData.ClientEmail,
         Adviser: formData.Adviser,
-        Title: appType,
+        Title: formData.Title,
         Status: "Open",
         CurrentStage: "Lead",
         ModuleListName: listName,
@@ -655,12 +1239,22 @@ function createSingleCase(appType, ctx, callback) {
           : new Date(),
       };
 
+      console.log("[NewCase] Creating CASESLIST mirror", {
+        listName: casesListName,
+        mirrorData: mirrorData,
+      });
+
       $spcontext.createItems(
         [mirrorData],
-        configProperties.CASESLIST.setting,
+        casesListName,
         function (mirrorCreated) {
           var mirrorItemID = mirrorCreated[0].get_id();
           updateObj.CaseListID = mirrorItemID;
+
+          console.log("[NewCase] CASESLIST mirror created", {
+            mirrorItemID: mirrorItemID,
+            updateObj: updateObj,
+          });
 
           $spcontext.updateItems(
             [updateObj],
@@ -670,20 +1264,22 @@ function createSingleCase(appType, ctx, callback) {
                 window.CaseTaskService &&
                 typeof CaseTaskService.onNewCaseCreated === "function"
               ) {
+                var taskPayload = {
+                  CaseID: caseId,
+                  CaseListItemId: mirrorItemID,
+                  ApplicationType: appType,
+                  Client: ctx.jointTitle || ctx.clientData.Title,
+                  Adviser: formData.Adviser,
+                  AdviserName: ctx.adviserEmail,
+                  CaseManager: formData.Adviser,
+                  Initiator: CurrentUserProperties.email,
+                  InitialStage: "Lead",
+                };
+                console.log("[NewCase] Creating initial tasks", taskPayload);
                 CaseTaskService.onNewCaseCreated(
-                  {
-                    CaseID: caseId,
-                    CaseListItemId: mirrorItemID,
-                    ApplicationType: appType,
-                    Client: ctx.clientData.Title,
-                    Adviser: formData.Adviser,
-                    AdviserName: ctx.adviserEmail,
-                    CaseManager: formData.Adviser,
-                    Initiator: CurrentUserProperties.email,
-                    InitialStage: "Lead",
-                  },
+                  taskPayload,
                   function (err) {
-                    if (err) console.warn("Initial tasks warning:", err);
+                    if (err) console.warn("[NewCase] Initial tasks warning:", err);
                     callback(null, caseId);
                   }
                 );
@@ -692,26 +1288,47 @@ function createSingleCase(appType, ctx, callback) {
               }
             },
             function (sender, args) {
-              callback(
+              var msg =
                 (args && args.get_message && args.get_message()) ||
-                  "Failed to finalise case " + appType
-              );
+                "Failed to finalise case";
+              console.error("[NewCase] Failed module list update", {
+                listName: listName,
+                updateObj: updateObj,
+                error: msg,
+                sender: sender,
+                args: args,
+              });
+              callback(msg);
             }
           );
         },
         function (sender, args) {
-          callback(
+          var msg =
             (args && args.get_message && args.get_message()) ||
-              "Failed to mirror case " + appType
-          );
+            "Failed to mirror case";
+          console.error("[NewCase] Failed CASESLIST create", {
+            listName: casesListName,
+            mirrorData: mirrorData,
+            error: msg,
+            sender: sender,
+            args: args,
+          });
+          callback(msg);
         }
       );
     },
     function (sender, args) {
-      callback(
+      var msg =
         (args && args.get_message && args.get_message()) ||
-          "Failed to create case " + appType
-      );
+        "Failed to create case";
+      console.error("[NewCase] Failed module list create", {
+        listName: listName,
+        formData: formData,
+        error: msg,
+        sender: sender,
+        args: args,
+      });
+      callback(msg);
     }
   );
 }
