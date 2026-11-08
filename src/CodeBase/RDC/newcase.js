@@ -48,7 +48,9 @@ function whenNewCaseLoaded() {
   populateCaseClientSelect();
   bindCaseClientSearch();
   populateAdviserSelect();
+  populateMortgageAdminSelect();
   bindCategoryTypeCascade();
+  initDocumentChecklist();
   refreshClientSelectionStatus();
 
   // Surface current max on the page hint
@@ -402,6 +404,7 @@ function mapSpClientItem(spItem) {
     Nationality: field("Nationality") || "",
     MaritalStatus: field("MaritalStatus") || "",
     ContactPreference: field("ContactPreference") || "",
+    HomePhone: field("HomePhone") || "",
     ResidentialAddress: field("ResidentialAddress") || "",
     CorrespondenceAddress: field("CorrespondenceAddress") || "",
   };
@@ -456,6 +459,9 @@ function renderClientFormCard(item) {
     contactPrefGroupHtml(item.ID, item.ContactPreference) +
     "</div>" +
     '<div class="form-row">' +
+    fieldGroupHtml(item.ID, "homePhone", "Home phone", "tel", false, "phone", item.HomePhone) +
+    '<div class="form-group"></div></div>' +
+    '<div class="form-row single">' +
     addressGroupHtml(item.ID, "residentialAddress", "Residential address", item.ResidentialAddress) +
     "</div>" +
     '<div class="form-row single">' +
@@ -783,7 +789,482 @@ function populateAdviserSelect() {
   });
 }
 
+function populateMortgageAdminSelect() {
+  var sel = document.getElementById("case_mortgageAdmin");
+  if (!sel) return;
+  var list = (MainApplication.advisersList || []).slice().sort(function (a, b) {
+    return String(a.Title || "").localeCompare(String(b.Title || ""));
+  });
+  sel.innerHTML = '<option value="">Select mortgage admin…</option>';
+  list.forEach(function (a) {
+    var email = a.Email || a.EmailAddress || "";
+    if (!email) return;
+    var opt = document.createElement("option");
+    opt.value = email;
+    opt.textContent = (a.Title || email) + " · " + email;
+    opt.setAttribute("data-title", a.Title || email);
+    sel.appendChild(opt);
+  });
+}
+
+function peopleFieldFromLogin(login) {
+  if (!login) return null;
+  try {
+    if (typeof SP !== "undefined" && SP.FieldUserValue) {
+      return SP.FieldUserValue.fromUser(login);
+    }
+  } catch (e) {
+    console.warn("[NewCase] FieldUserValue failed", e);
+  }
+  return login;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Document checklist (Mortgage — initial client email template)
+   ═══════════════════════════════════════════════════════════ */
+
+var DOC_CHECKLIST_STATE = {
+  identityType: "BritishCitizen",
+  incomeTypes: ["Employed"],
+  depositType: "None",
+  includeAddress: true,
+  includeBankStatements: true,
+  includeCreditReport: true,
+  includeFactFind: true,
+  includeTerms: true,
+};
+
+var DOC_CATALOG = {
+  identity: {
+    title: "Proof of Identity",
+    options: [
+      {
+        value: "BritishCitizen",
+        label: "British Citizen",
+        docs: "UK Passport (signed, in-date — photo + signature pages) OR UK Drivers Licence (signed, in-date — front & back)",
+      },
+      {
+        value: "ForeignNational",
+        label: "Foreign National",
+        docs: "International Passport (data page) AND British Residency Permit (front & back) or Share Code (gov.uk)",
+      },
+    ],
+  },
+  address: {
+    title: "Proof of Address",
+    docs:
+      "One of: Utility bill (gas/electric/water/landline/broadband, last 3 months); Council tax (last 3 months); UK Drivers Licence (if not used as ID); Bank/credit card statement (last resort). Must show name + full residential address. Cannot reuse the same document for two applicants.",
+  },
+  income: {
+    title: "Proof of Income",
+    always:
+      "Latest 3 months' personal current account statements (name + address; all regular income & expenditure). Provide all accounts if split.",
+    options: [
+      {
+        value: "Employed",
+        label: "Employed",
+        docs: "Latest 3 months payslips (13 weeks if weekly) + latest P60. If short on payslips: latest payslip(s) + signed employment contract.",
+      },
+      {
+        value: "SelfEmployed",
+        label: "Self-Employed / Ltd Director",
+        docs: "Latest 2 years SA302 + Tax Year Overviews + latest 3 months business bank statements.",
+      },
+      {
+        value: "Contractor",
+        label: "Day Rate Contractor",
+        docs: "Copy of latest contract (details, rate, length, signed where applicable).",
+      },
+      {
+        value: "Benefits",
+        label: "Benefits",
+        docs: "Benefit award letters/certificates for all benefits + bank statement showing payments (if not already provided).",
+      },
+      {
+        value: "Pension",
+        label: "Pension",
+        docs: "Latest pension forecast/statement + bank statement showing payments (if not already provided).",
+      },
+    ],
+  },
+  deposit: {
+    title: "Proof of Deposit",
+    options: [
+      { value: "None", label: "Not required / N/A", docs: "" },
+      {
+        value: "Savings",
+        label: "Savings / Inheritance",
+        docs: "Latest bank statement(s) showing the deposit (all accounts if split).",
+      },
+      {
+        value: "Gifted",
+        label: "Gifted",
+        docs: "Gifter's latest bank statement(s) showing funds + gifter proof of ID + gifter proof of address.",
+      },
+    ],
+  },
+  credit: {
+    title: "Credit Report",
+    docs: "Full CheckMyFile report (Experian, Equifax & TransUnion). Free 30-day access — download then cancel if preferred.",
+  },
+  factFind: {
+    title: "Fact Find",
+    docs: "Complete the attached fact find accurately and return to admin@mortgage2match.com.",
+  },
+  terms: {
+    title: "Terms of Business & Privacy Notice",
+    docs: "Privacy Notice and Terms of Business attached for review. Will be re-sent via Adobe Sign for electronic signature — no action needed yet beyond review.",
+  },
+};
+
+function initDocumentChecklist() {
+  var root = document.getElementById("docChecklistRoot");
+  if (!root) return;
+  renderDocumentChecklist();
+  var previewBtn = document.getElementById("docChecklistPreviewBtn");
+  if (previewBtn) {
+    previewBtn.addEventListener("click", function () {
+      var box = document.getElementById("docChecklistPreview");
+      if (!box) return;
+      box.textContent = buildRequiredDocumentsText();
+      box.classList.add("open");
+    });
+  }
+}
+
+function renderDocumentChecklist() {
+  var root = document.getElementById("docChecklistRoot");
+  if (!root) return;
+  root.innerHTML = "";
+
+  root.appendChild(
+    buildDocAccordion(
+      "identity",
+      DOC_CATALOG.identity.title,
+      buildRadioGroup(
+        "doc_identity",
+        DOC_CATALOG.identity.options,
+        DOC_CHECKLIST_STATE.identityType,
+        function (v) {
+          DOC_CHECKLIST_STATE.identityType = v;
+        }
+      )
+    )
+  );
+
+  root.appendChild(
+    buildDocAccordion(
+      "address",
+      DOC_CATALOG.address.title,
+      buildToggleRow(
+        "doc_address",
+        "Request proof of address",
+        DOC_CHECKLIST_STATE.includeAddress,
+        function (on) {
+          DOC_CHECKLIST_STATE.includeAddress = on;
+        },
+        DOC_CATALOG.address.docs
+      )
+    )
+  );
+
+  var incomeBody = document.createElement("div");
+  incomeBody.appendChild(
+    buildToggleRow(
+      "doc_bank",
+      "3 months personal bank statements (all incomes)",
+      DOC_CHECKLIST_STATE.includeBankStatements,
+      function (on) {
+        DOC_CHECKLIST_STATE.includeBankStatements = on;
+      },
+      DOC_CATALOG.income.always
+    )
+  );
+  incomeBody.appendChild(
+    buildCheckboxGroup(
+      "doc_income",
+      DOC_CATALOG.income.options,
+      DOC_CHECKLIST_STATE.incomeTypes,
+      function (arr) {
+        DOC_CHECKLIST_STATE.incomeTypes = arr;
+      }
+    )
+  );
+  root.appendChild(
+    buildDocAccordion("income", DOC_CATALOG.income.title, incomeBody)
+  );
+
+  root.appendChild(
+    buildDocAccordion(
+      "deposit",
+      DOC_CATALOG.deposit.title,
+      buildRadioGroup(
+        "doc_deposit",
+        DOC_CATALOG.deposit.options,
+        DOC_CHECKLIST_STATE.depositType,
+        function (v) {
+          DOC_CHECKLIST_STATE.depositType = v;
+        }
+      )
+    )
+  );
+
+  root.appendChild(
+    buildDocAccordion(
+      "credit",
+      DOC_CATALOG.credit.title,
+      buildToggleRow(
+        "doc_credit",
+        "Request CheckMyFile credit report",
+        DOC_CHECKLIST_STATE.includeCreditReport,
+        function (on) {
+          DOC_CHECKLIST_STATE.includeCreditReport = on;
+        },
+        DOC_CATALOG.credit.docs
+      )
+    )
+  );
+  root.appendChild(
+    buildDocAccordion(
+      "factFind",
+      DOC_CATALOG.factFind.title,
+      buildToggleRow(
+        "doc_factfind",
+        "Request completed fact find",
+        DOC_CHECKLIST_STATE.includeFactFind,
+        function (on) {
+          DOC_CHECKLIST_STATE.includeFactFind = on;
+        },
+        DOC_CATALOG.factFind.docs
+      )
+    )
+  );
+  root.appendChild(
+    buildDocAccordion(
+      "terms",
+      DOC_CATALOG.terms.title,
+      buildToggleRow(
+        "doc_terms",
+        "Include Terms of Business & Privacy Notice note",
+        DOC_CHECKLIST_STATE.includeTerms,
+        function (on) {
+          DOC_CHECKLIST_STATE.includeTerms = on;
+        },
+        DOC_CATALOG.terms.docs
+      )
+    )
+  );
+}
+
+function buildDocAccordion(id, title, bodyContent) {
+  var wrap = document.createElement("div");
+  wrap.className = "doc-acc";
+  wrap.id = "doc_acc_" + id;
+
+  var head = document.createElement("button");
+  head.type = "button";
+  head.className = "doc-acc-head";
+  head.innerHTML =
+    '<span class="doc-acc-title">' +
+    escapeHtml(title) +
+    '</span><span class="doc-acc-chevron">▾</span>';
+
+  var body = document.createElement("div");
+  body.className = "doc-acc-body";
+  if (bodyContent instanceof Node) body.appendChild(bodyContent);
+  else if (typeof bodyContent === "string") body.innerHTML = bodyContent;
+
+  head.addEventListener("click", function () {
+    wrap.classList.toggle("open");
+  });
+  if (id === "identity" || id === "income") wrap.classList.add("open");
+
+  wrap.appendChild(head);
+  wrap.appendChild(body);
+  return wrap;
+}
+
+function buildRadioGroup(name, options, selected, onChange) {
+  var box = document.createElement("div");
+  box.className = "doc-option-list";
+  options.forEach(function (opt) {
+    var row = document.createElement("label");
+    row.className = "doc-option-row";
+    var input = document.createElement("input");
+    input.type = "radio";
+    input.name = name;
+    input.value = opt.value;
+    input.checked = opt.value === selected;
+    input.addEventListener("change", function () {
+      if (input.checked) onChange(opt.value);
+    });
+    var main = document.createElement("div");
+    main.className = "doc-option-main";
+    main.innerHTML =
+      "<strong>" +
+      escapeHtml(opt.label) +
+      "</strong>" +
+      (opt.docs
+        ? '<span class="doc-option-docs">' + escapeHtml(opt.docs) + "</span>"
+        : "");
+    row.appendChild(input);
+    row.appendChild(main);
+    box.appendChild(row);
+  });
+  return box;
+}
+
+function buildCheckboxGroup(name, options, selectedArr, onChange) {
+  var box = document.createElement("div");
+  box.className = "doc-option-list";
+  options.forEach(function (opt) {
+    var row = document.createElement("label");
+    row.className = "doc-option-row";
+    var input = document.createElement("input");
+    input.type = "checkbox";
+    input.name = name;
+    input.value = opt.value;
+    input.checked = selectedArr.indexOf(opt.value) >= 0;
+    input.addEventListener("change", function () {
+      var next = [];
+      box.querySelectorAll('input[type="checkbox"]').forEach(function (cb) {
+        if (cb.checked) next.push(cb.value);
+      });
+      onChange(next);
+    });
+    var main = document.createElement("div");
+    main.className = "doc-option-main";
+    main.innerHTML =
+      "<strong>" +
+      escapeHtml(opt.label) +
+      "</strong>" +
+      (opt.docs
+        ? '<span class="doc-option-docs">' + escapeHtml(opt.docs) + "</span>"
+        : "");
+    row.appendChild(input);
+    row.appendChild(main);
+    box.appendChild(row);
+  });
+  return box;
+}
+
+function buildToggleRow(id, label, checked, onChange, detail) {
+  var wrap = document.createElement("div");
+  wrap.className = "doc-toggle-block";
+  var row = document.createElement("label");
+  row.className = "doc-option-row";
+  var input = document.createElement("input");
+  input.type = "checkbox";
+  input.id = id;
+  input.checked = !!checked;
+  input.addEventListener("change", function () {
+    onChange(input.checked);
+  });
+  var main = document.createElement("div");
+  main.className = "doc-option-main";
+  main.innerHTML = "<strong>" + escapeHtml(label) + "</strong>";
+  row.appendChild(input);
+  row.appendChild(main);
+  wrap.appendChild(row);
+  if (detail) {
+    var d = document.createElement("p");
+    d.className = "doc-option-docs detail";
+    d.textContent = detail;
+    wrap.appendChild(d);
+  }
+  return wrap;
+}
+
+function buildRequiredDocumentsText() {
+  var lines = [];
+  lines.push("DOCUMENT REQUIREMENTS");
+  lines.push("");
+
+  var idOpt = DOC_CATALOG.identity.options.filter(function (o) {
+    return o.value === DOC_CHECKLIST_STATE.identityType;
+  })[0];
+  if (idOpt) {
+    lines.push("• Proof of Identity — " + idOpt.label);
+    lines.push("  " + idOpt.docs);
+    lines.push("");
+  }
+
+  if (DOC_CHECKLIST_STATE.includeAddress) {
+    lines.push("• Proof of Address");
+    lines.push("  " + DOC_CATALOG.address.docs);
+    lines.push("");
+  }
+
+  if (DOC_CHECKLIST_STATE.includeBankStatements) {
+    lines.push("• Bank statements (all income types)");
+    lines.push("  " + DOC_CATALOG.income.always);
+    lines.push("");
+  }
+
+  if (DOC_CHECKLIST_STATE.incomeTypes && DOC_CHECKLIST_STATE.incomeTypes.length) {
+    lines.push("• Proof of Income — specific:");
+    DOC_CHECKLIST_STATE.incomeTypes.forEach(function (v) {
+      var opt = DOC_CATALOG.income.options.filter(function (o) {
+        return o.value === v;
+      })[0];
+      if (opt) lines.push("  – " + opt.label + ": " + opt.docs);
+    });
+    lines.push("");
+  }
+
+  if (DOC_CHECKLIST_STATE.depositType && DOC_CHECKLIST_STATE.depositType !== "None") {
+    var dep = DOC_CATALOG.deposit.options.filter(function (o) {
+      return o.value === DOC_CHECKLIST_STATE.depositType;
+    })[0];
+    if (dep) {
+      lines.push("• Proof of Deposit — " + dep.label);
+      lines.push("  " + dep.docs);
+      lines.push("");
+    }
+  }
+
+  if (DOC_CHECKLIST_STATE.includeCreditReport) {
+    lines.push("• Credit Report (CheckMyFile)");
+    lines.push("  " + DOC_CATALOG.credit.docs);
+    lines.push("");
+  }
+
+  if (DOC_CHECKLIST_STATE.includeFactFind) {
+    lines.push("• Fact Find");
+    lines.push("  " + DOC_CATALOG.factFind.docs);
+    lines.push("");
+  }
+
+  if (DOC_CHECKLIST_STATE.includeTerms) {
+    lines.push("• Terms of Business & Privacy Notice");
+    lines.push("  " + DOC_CATALOG.terms.docs);
+    lines.push("");
+  }
+
+  lines.push("Please email documents to admin@mortgage2match.com");
+  lines.push(
+    "Tips: Prefer a scanner; if using a phone, use a scanning app, neutral background, all four corners visible."
+  );
+
+  return lines.join("\n");
+}
+
+function collectRequiredDocumentsPayload() {
+  return {
+    identityType: DOC_CHECKLIST_STATE.identityType,
+    incomeTypes: (DOC_CHECKLIST_STATE.incomeTypes || []).slice(),
+    depositType: DOC_CHECKLIST_STATE.depositType,
+    includeAddress: !!DOC_CHECKLIST_STATE.includeAddress,
+    includeBankStatements: !!DOC_CHECKLIST_STATE.includeBankStatements,
+    includeCreditReport: !!DOC_CHECKLIST_STATE.includeCreditReport,
+    includeFactFind: !!DOC_CHECKLIST_STATE.includeFactFind,
+    includeTerms: !!DOC_CHECKLIST_STATE.includeTerms,
+    emailText: buildRequiredDocumentsText(),
+  };
+}
+
 /* ── Category → Type cascade ─────────────────────────────── */
+
 
 var TYPES_BY_CATEGORY = {
   MORTGAGE: [
@@ -865,32 +1346,31 @@ function updateTypeDetailPanel(category, subType) {
   var section = document.getElementById("caseTypeDetailSection");
   var title = document.getElementById("caseTypeDetailTitle");
   var body = document.getElementById("caseTypeDetailBody");
-  if (!section) return;
+  var docSection = document.getElementById("docChecklistSection");
 
   if (!category) {
-    section.style.display = "none";
+    if (section) section.style.display = "none";
+    if (docSection) docSection.style.display = "none";
     return;
   }
 
-  section.style.display = "";
   var catLabel = CATEGORY_LABELS[category] || category;
+
+  // Document checklist for every category — only once a Type is selected
+  if (subType) {
+    if (docSection) docSection.style.display = "";
+    if (section) section.style.display = "none";
+    return;
+  }
+
+  if (docSection) docSection.style.display = "none";
+  if (!section) return;
+  section.style.display = "";
   if (title) {
-    title.textContent = subType
-      ? catLabel + " · " + subType
-      : catLabel + " details";
+    title.textContent = catLabel + " details";
   }
   if (body) {
-    if (subType) {
-      body.innerHTML =
-        "<p>Fields for <strong>" +
-        escapeHtml(catLabel) +
-        " — " +
-        escapeHtml(subType) +
-        "</strong> will appear here once they are defined. Nothing is assumed yet.</p>";
-    } else {
-      body.innerHTML =
-        "<p>Select a type to continue. Type-specific fields will appear here once they are defined.</p>";
-    }
+    body.innerHTML = "<p>Select a type to continue.</p>";
   }
 }
 
@@ -912,6 +1392,7 @@ function collectClientDataFromCard(clientId) {
     Nationality: val(fieldId(clientId, "nationality")),
     MaritalStatus: val(fieldId(clientId, "maritalStatus")),
     ContactPreference: val(fieldId(clientId, "contactPreference")),
+    HomePhone: val(fieldId(clientId, "homePhone")),
     ResidentialAddress: val(fieldId(clientId, "residentialAddress")),
     CorrespondenceAddress: val(fieldId(clientId, "correspondenceAddress")),
   };
@@ -989,6 +1470,16 @@ MainApplication.NewCaseComponent.saveDataToList = function () {
     return;
   }
 
+  var adminSel = document.getElementById("case_mortgageAdmin");
+  var adminEmail = adminSel ? trim(adminSel.value) : "";
+  if (!adminEmail) {
+    var merr = document.querySelector('[data-error-for="case_mortgageAdmin"]');
+    if (merr) merr.textContent = "Please select a mortgage admin";
+    globalDefinitions.HandlerError("Please select a mortgage admin.", false);
+    globalDefinitions.onActionFailed();
+    return;
+  }
+
   var catEl = document.getElementById("case_category");
   var typEl = document.getElementById("case_type");
   var category = catEl ? trim(catEl.value) : "";
@@ -1053,8 +1544,10 @@ MainApplication.NewCaseComponent.saveDataToList = function () {
         allClients: clientsPayload,
         adviserEmail: adviserEmail,
         adviserTitle: adviserTitle,
+        mortgageAdminEmail: adminEmail,
         priority: priority,
         subType: subType,
+        requiredDocuments: collectRequiredDocumentsPayload(),
       },
       function (createErr, caseId) {
         globalDefinitions.closeLoader();
@@ -1129,6 +1622,28 @@ function resolveListForType(appType) {
   };
 }
 
+
+function spErrorMessage(sender, args, fallback) {
+  var parts = [];
+  try {
+    if (args && typeof args.get_message === "function") {
+      var m = args.get_message();
+      if (m) parts.push(m);
+    }
+  } catch (e) {}
+  try {
+    if (args && typeof args.get_stackTrace === "function") {
+      var st = args.get_stackTrace();
+      if (st) parts.push(st);
+    }
+  } catch (e2) {}
+  try {
+    if (args && args.message) parts.push(String(args.message));
+  } catch (e3) {}
+  if (!parts.length && fallback) parts.push(fallback);
+  return parts.join(" | ") || fallback || "Unknown SharePoint error";
+}
+
 function createSingleCase(appType, ctx, callback) {
   var resolved = resolveListForType(appType);
   var listName = resolved.listName;
@@ -1154,13 +1669,17 @@ function createSingleCase(appType, ctx, callback) {
     })
     .filter(Boolean);
 
+  var adviserLogin = ctx.adviserEmail || "";
+  var adminLogin = ctx.mortgageAdminEmail || "";
+  var adviserFieldValue = peopleFieldFromLogin(adviserLogin);
+  var adminFieldValue = peopleFieldFromLogin(adminLogin);
+
   var formData = {
     ApplicationType: appType,
     CasePriority: ctx.priority,
     Title: ctx.jointTitle || clientNames.join(" & ") || appType,
     ClientName: clientNames.join("; "),
     ClientEmail: clientEmails.join("; "),
-    Adviser: ctx.adviserEmail,
     RequestCreated: $spcontext.serverDate
       ? $spcontext.serverDate()
       : new Date(),
@@ -1172,6 +1691,26 @@ function createSingleCase(appType, ctx, callback) {
       : new Date()
     ).getFullYear(),
   };
+
+  if (adviserFieldValue) formData.Adviser = adviserFieldValue;
+  else if (adviserLogin) formData.Adviser = adviserLogin;
+
+  if (adminFieldValue) formData.MortgageAdmin = adminFieldValue;
+  else if (adminLogin) formData.MortgageAdmin = adminLogin;
+
+  if (ctx.requiredDocuments && ctx.requiredDocuments.emailText) {
+    formData.RequiredDocuments = ctx.requiredDocuments.emailText;
+    formData.RequiredDocumentsSummary = [
+      "Identity=" + (ctx.requiredDocuments.identityType || ""),
+      "Income=" + ((ctx.requiredDocuments.incomeTypes || []).join(",")),
+      "Deposit=" + (ctx.requiredDocuments.depositType || ""),
+      "Address=" + (ctx.requiredDocuments.includeAddress ? "Y" : "N"),
+      "Bank=" + (ctx.requiredDocuments.includeBankStatements ? "Y" : "N"),
+      "Credit=" + (ctx.requiredDocuments.includeCreditReport ? "Y" : "N"),
+      "FactFind=" + (ctx.requiredDocuments.includeFactFind ? "Y" : "N"),
+      "Terms=" + (ctx.requiredDocuments.includeTerms ? "Y" : "N"),
+    ].join("; ");
+  }
 
   if (ctx.subType) {
     if (appType === "MORTGAGE") formData.MortgageType = ctx.subType;
@@ -1238,6 +1777,11 @@ function createSingleCase(appType, ctx, callback) {
           ? $spcontext.serverDate()
           : new Date(),
       };
+      if (formData.MortgageAdmin) mirrorData.MortgageAdmin = formData.MortgageAdmin;
+      if (formData.RequiredDocuments)
+        mirrorData.RequiredDocuments = formData.RequiredDocuments;
+      if (formData.RequiredDocumentsSummary)
+        mirrorData.RequiredDocumentsSummary = formData.RequiredDocumentsSummary;
 
       console.log("[NewCase] Creating CASESLIST mirror", {
         listName: casesListName,
@@ -1288,9 +1832,7 @@ function createSingleCase(appType, ctx, callback) {
               }
             },
             function (sender, args) {
-              var msg =
-                (args && args.get_message && args.get_message()) ||
-                "Failed to finalise case";
+              var msg = spErrorMessage(sender, args, "Failed to finalise case");
               console.error("[NewCase] Failed module list update", {
                 listName: listName,
                 updateObj: updateObj,
@@ -1303,9 +1845,7 @@ function createSingleCase(appType, ctx, callback) {
           );
         },
         function (sender, args) {
-          var msg =
-            (args && args.get_message && args.get_message()) ||
-            "Failed to mirror case";
+          var msg = spErrorMessage(sender, args, "Failed to mirror case");
           console.error("[NewCase] Failed CASESLIST create", {
             listName: casesListName,
             mirrorData: mirrorData,
@@ -1318,12 +1858,11 @@ function createSingleCase(appType, ctx, callback) {
       );
     },
     function (sender, args) {
-      var msg =
-        (args && args.get_message && args.get_message()) ||
-        "Failed to create case";
+      var msg = spErrorMessage(sender, args, "Failed to create case");
       console.error("[NewCase] Failed module list create", {
         listName: listName,
         formData: formData,
+        formDataKeys: Object.keys(formData || {}),
         error: msg,
         sender: sender,
         args: args,

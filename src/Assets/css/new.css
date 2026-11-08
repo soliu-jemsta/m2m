@@ -1,3 +1,4 @@
+
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
   --sidebar-w:230px;
@@ -1286,3 +1287,80 @@ input[readonly]{
   from{opacity:0;transform:translateY(6px)}
   to{opacity:1;transform:none}
 }
+
+/* ── Document checklist (Create Case) ── */
+.section-title-hint{
+  font-weight:500;
+  font-size:12px;
+  color:var(--muted,#64748b);
+}
+.doc-checklist{display:flex;flex-direction:column;gap:8px;margin-top:8px}
+.doc-acc{
+  border:1px solid var(--border,#e2e8f0);
+  border-radius:10px;
+  background:var(--surface,#fff);
+  overflow:hidden;
+}
+.doc-acc-head{
+  width:100%;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:12px 14px;
+  border:none;
+  background:var(--surface2,#f8fafc);
+  cursor:pointer;
+  text-align:left;
+  font-size:13px;
+  font-weight:700;
+  color:var(--text,#0f172a);
+}
+.doc-acc-head:hover{background:#f1f5f9}
+.doc-acc-chevron{transition:transform .15s;color:var(--muted,#64748b)}
+.doc-acc.open .doc-acc-chevron{transform:rotate(180deg)}
+.doc-acc-body{display:none;padding:10px 14px 14px;border-top:1px solid var(--border,#e2e8f0)}
+.doc-acc.open .doc-acc-body{display:block}
+.doc-option-list{display:flex;flex-direction:column;gap:8px}
+.doc-option-row{
+  display:flex;
+  align-items:flex-start;
+  gap:10px;
+  margin:0;
+  padding:8px 10px;
+  border-radius:8px;
+  border:1px solid transparent;
+  cursor:pointer;
+}
+.doc-option-row:hover{background:#f8fafc}
+.doc-option-row:has(input:checked){
+  background:#eff6ff;
+  border-color:#bfdbfe;
+}
+.doc-option-row input{margin-top:3px;flex-shrink:0}
+.doc-option-main{display:flex;flex-direction:column;gap:4px;min-width:0}
+.doc-option-main strong{font-size:13px;font-weight:600;color:var(--text,#0f172a)}
+.doc-option-docs{
+  font-size:12px;
+  line-height:1.4;
+  color:var(--muted,#64748b);
+  font-weight:400;
+}
+.doc-option-docs.detail{margin:4px 0 0 26px}
+.doc-toggle-block{margin-bottom:8px}
+.doc-checklist-preview{margin-top:12px}
+.doc-checklist-preview-box{
+  display:none;
+  margin-top:8px;
+  padding:12px 14px;
+  border-radius:8px;
+  background:#0f172a;
+  color:#e2e8f0;
+  font-size:12px;
+  line-height:1.45;
+  white-space:pre-wrap;
+  max-height:280px;
+  overflow:auto;
+}
+.doc-checklist-preview-box.open{display:block}
+.btn-sm{padding:6px 12px;font-size:12px}

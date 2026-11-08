@@ -7,8 +7,8 @@ require("newclient"); // ClientFormUtils, nationality, address helpers
 /**
  * Create Case
  * 1) Select one or more clients → editable basic info per client
- * 2) Category → Type
- * 3) Type-specific fields (placeholder until defined)
+ * 2) Category → Type + Adviser / Mortgage Admin
+ * 3) Mortgage: compact document checklist (for client email)
  */
 export default class NewCase extends React.Component<{}, {}> {
   public render(): React.ReactElement {
@@ -19,8 +19,8 @@ export default class NewCase extends React.Component<{}, {}> {
             <div>
               <h1>Create case</h1>
               <p>
-                Select one or more clients, confirm their details, then choose
-                category and type
+                Select clients, assign adviser &amp; admin, choose category and
+                type, then confirm document requirements
               </p>
             </div>
           </div>
@@ -30,8 +30,9 @@ export default class NewCase extends React.Component<{}, {}> {
             <div className="form-section">
               <div className="form-section-title">Clients</div>
               <p className="client-type-hint">
-                Add one or more clients (e.g. joint applicants). Each person&apos;s
-                basic details can be reviewed and updated below.
+                Add up to <strong id="caseClientMaxHint">2</strong> clients
+                (e.g. joint applicants). Each person&apos;s basic details can be
+                reviewed and updated below.
               </p>
               <div className="form-row">
                 <div className="form-group">
@@ -80,6 +81,21 @@ export default class NewCase extends React.Component<{}, {}> {
                   <span className="field-error" data-error-for="case_adviser" />
                 </div>
                 <div className="form-group">
+                  <label htmlFor="case_mortgageAdmin">
+                    Mortgage Admin <span className="req">*</span>
+                  </label>
+                  <select id="case_mortgageAdmin">
+                    <option value="">Select mortgage admin…</option>
+                  </select>
+                  <span
+                    className="field-error"
+                    data-error-for="case_mortgageAdmin"
+                  />
+                </div>
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
                   <label htmlFor="case_priority">Priority</label>
                   <select id="case_priority" speed-bind="CasePriority">
                     <option value="Normal">Normal</option>
@@ -87,6 +103,7 @@ export default class NewCase extends React.Component<{}, {}> {
                     <option value="Urgent">Urgent</option>
                   </select>
                 </div>
+                <div className="form-group" />
               </div>
 
               <div className="form-row">
@@ -114,7 +131,37 @@ export default class NewCase extends React.Component<{}, {}> {
               </div>
             </div>
 
-            {/* ── Type-specific fields (placeholder) ── */}
+            {/* ── Document requirements (all categories, once type selected) ── */}
+            <div
+              className="form-section"
+              id="docChecklistSection"
+              style={{ display: "none" }}
+            >
+              <div className="form-section-title">
+                Document requirements
+                <span className="section-title-hint">
+                  {" "}
+                  · select what to request in the client email
+                </span>
+              </div>
+              <p className="client-type-hint">
+                Compact checklist based on the initial client email template.
+                Expand a row for acceptable documents and remarks.
+              </p>
+              <div id="docChecklistRoot" className="doc-checklist" />
+              <div className="doc-checklist-preview">
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  id="docChecklistPreviewBtn"
+                >
+                  Preview email text
+                </button>
+                <pre id="docChecklistPreview" className="doc-checklist-preview-box" />
+              </div>
+            </div>
+
+            {/* ── Non-mortgage type placeholder ── */}
             <div
               className="form-section"
               id="caseTypeDetailSection"
@@ -126,7 +173,7 @@ export default class NewCase extends React.Component<{}, {}> {
               <div className="case-type-placeholder" id="caseTypeDetailBody">
                 <p>
                   Fields for the selected category and type will appear here once
-                  they are defined. Nothing is assumed yet.
+                  they are defined.
                 </p>
               </div>
             </div>
