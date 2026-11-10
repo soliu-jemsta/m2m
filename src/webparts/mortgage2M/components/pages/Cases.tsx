@@ -17,7 +17,7 @@ interface ColumnDef {
 const MORTGAGE_COLUMNS: ColumnDef[] = [
   { label: "S/N" },
   { label: "Reference", bind: "CaseID" },
-  { label: "Client(s)", bind: "Client" },
+  { label: "Client(s)", bind: "Title" },
   { label: "Adviser", bind: "Adviser" },
   { label: "Type", bind: "ApplicationType" },
   { label: "Status", bind: "Status" },
@@ -26,7 +26,7 @@ const MORTGAGE_COLUMNS: ColumnDef[] = [
 const P4L_COLUMNS: ColumnDef[] = [
   { label: "S/N" },
   { label: "Reference", bind: "CaseID" },
-  { label: "Client(s)", bind: "Client" },
+  { label: "Client(s)", bind: "Title" },
   { label: "Adviser", bind: "Adviser" },
   { label: "Type", bind: "ApplicationType" },
   { label: "Status", bind: "Status" },
@@ -35,7 +35,7 @@ const P4L_COLUMNS: ColumnDef[] = [
 const GI_COLUMNS: ColumnDef[] = [
   { label: "S/N" },
   { label: "Reference", bind: "CaseID" },
-  { label: "Client(s)", bind: "Client" },
+  { label: "Client(s)", bind: "Title" },
   { label: "Adviser", bind: "Adviser" },
   { label: "Type", bind: "ApplicationType" },
   { label: "Status", bind: "Status" },

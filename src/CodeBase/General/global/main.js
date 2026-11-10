@@ -71,6 +71,9 @@ function MainStartPoint() {
   this.adviserDetails = {};
   this.advisersList = [];
 
+  this.mortgageAdminDetails = {};
+  this.mortgageAdminList = [];
+
   this.AuditDetails = {};
   this.AuditList = [];
 
@@ -114,7 +117,7 @@ function whenLayoutLoaded() {
   $spcontext.loadSPDependencies(function () {
     // console.log("SP dependencies started");
     var dependenciesCount = 0;
-    var expectedDepenciesCount = 7;
+    var expectedDepenciesCount = 8;
     // speedctxRoot = new Speed();
     globalDefinitions = new GlobalDefinitionsManager();
 
@@ -277,6 +280,42 @@ function whenLayoutLoaded() {
           },
           function (items) {
             MainApplication.advisersList = items;
+
+            checkAppDependency();
+          }
+        );
+
+
+        $spcontext.getListToItems(
+          "MortgageAdmins",
+          [
+            {
+              orderby: "ID",
+              ascending: "FALSE",
+            },
+          ],
+          {
+            ignoreThreshold: false,
+            data: advisersColumn,
+            merge: false,
+          },
+          false,
+          function (item) {
+
+            const adviser = {
+              Title: item.Title || "",
+              Email: item.EmailAddress || "",
+            };
+
+            if (adviser.Email) {
+              MainApplication.mortgageAdminDetails[adviser.Email.toLowerCase()] = adviser;
+              MainApplication.mortgageAdminList.push(adviser);
+            }
+
+            return adviser;
+          },
+          function (items) {
+            MainApplication.mortgageAdminList = items;
 
             checkAppDependency();
           }

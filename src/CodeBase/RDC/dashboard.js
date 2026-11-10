@@ -88,8 +88,12 @@ whenDashBoardLoaded = function () {
   $spcontext.DataForTable.paginationuId = "toppagination";
 
   $spcontext.DataForTable.propertiesHandler = {
-    Client: function (row) {
-      return personVal(row.Client);
+    Title: function (row) {
+      var title = row.Title || "";
+      if (title.length > 40) {
+        title = title.substring(0, 37) + "...";
+      }
+      return title;
     },
     Adviser: function (row) {
       return personVal(row.Adviser);
@@ -333,7 +337,7 @@ MainApplication.DashBoardComponent.showRecentCases = function (cases) {
   var html = rows
     .map(function (row, idx) {
       var caseId = row.CaseID || "";
-      var client = personVal(row.Client);
+      var client = row.Title || "—";
       var adviser = personVal(row.Adviser);
       var status = row.Status || "—";
       var link =

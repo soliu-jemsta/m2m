@@ -103,7 +103,45 @@ export default class NewCase extends React.Component<{}, {}> {
                     <option value="Urgent">Urgent</option>
                   </select>
                 </div>
-                <div className="form-group" />
+                <div className="form-group">
+                  <label>
+                    Initial contact method <span className="req">*</span>
+                  </label>
+                  <p className="client-type-hint" style={{ marginBottom: 8 }}>
+                    How did the client get in touch with us?
+                  </p>
+                  <div className="contact-method-grid" id="contactMethodGrid" role="radiogroup" aria-label="Initial contact method">
+                    <label className="case-type-chip">
+                      <input type="radio" name="contactMethod" value="phone" defaultChecked />
+                      <span>Phone call</span>
+                    </label>
+                    <label className="case-type-chip">
+                      <input type="radio" name="contactMethod" value="text" />
+                      <span>Text message</span>
+                    </label>
+                    <label className="case-type-chip">
+                      <input type="radio" name="contactMethod" value="whatsapp" />
+                      <span>WhatsApp</span>
+                    </label>
+                    <label className="case-type-chip">
+                      <input type="radio" name="contactMethod" value="email" />
+                      <span>Email</span>
+                    </label>
+                    <label className="case-type-chip">
+                      <input type="radio" name="contactMethod" value="meeting" />
+                      <span>In-person meeting</span>
+                    </label>
+                    <label className="case-type-chip">
+                      <input type="radio" name="contactMethod" value="video" />
+                      <span>Video call</span>
+                    </label>
+                    <label className="case-type-chip">
+                      <input type="radio" name="contactMethod" value="other" />
+                      <span>Other</span>
+                    </label>
+                  </div>
+                  <span className="field-error" data-error-for="contactMethodGrid" />
+                </div>
               </div>
 
               <div className="form-row">

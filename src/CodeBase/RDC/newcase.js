@@ -792,7 +792,7 @@ function populateAdviserSelect() {
 function populateMortgageAdminSelect() {
   var sel = document.getElementById("case_mortgageAdmin");
   if (!sel) return;
-  var list = (MainApplication.advisersList || []).slice().sort(function (a, b) {
+  var list = (MainApplication.mortgageAdminList || []).slice().sort(function (a, b) {
     return String(a.Title || "").localeCompare(String(b.Title || ""));
   });
   sel.innerHTML = '<option value="">Select mortgage admin…</option>';
@@ -833,6 +833,32 @@ var DOC_CHECKLIST_STATE = {
   includeFactFind: true,
   includeTerms: true,
 };
+
+/** Maps form value → phrase used in the email opening sentence */
+var CONTACT_METHOD_PHRASES = {
+  phone: "telephone conversation",
+  text: "text message exchange",
+  whatsapp: "WhatsApp conversation",
+  email: "email correspondence",
+  meeting: "meeting",
+  video: "video call",
+  other: "recent contact",
+};
+
+var CONTACT_METHOD_LABELS = {
+  phone: "Phone call",
+  text: "Text message",
+  whatsapp: "WhatsApp",
+  email: "Email",
+  meeting: "In-person meeting",
+  video: "Video call",
+  other: "Other",
+};
+
+function getSelectedContactMethod() {
+  var el = document.querySelector('input[name="contactMethod"]:checked');
+  return el ? el.value : "phone";
+}
 
 var DOC_CATALOG = {
   identity: {
@@ -905,28 +931,192 @@ var DOC_CATALOG = {
   },
   credit: {
     title: "Credit Report",
-    docs: "Full CheckMyFile report (Experian, Equifax & TransUnion). Free 30-day access — download then cancel if preferred.",
+    docs: "", // built dynamically
   },
   factFind: {
-    title: "Fact Find",
-    docs: "Complete the attached fact find accurately and return to admin@mortgage2match.com.",
+    title: "Fact Find & Affordability",
+    docs: "", // built dynamically
   },
   terms: {
     title: "Terms of Business & Privacy Notice",
-    docs: "Privacy Notice and Terms of Business attached for review. Will be re-sent via Adobe Sign for electronic signature — no action needed yet beyond review.",
+    docs: "", // built dynamically
   },
 };
+
+/** Case-type specific links loaded from SharePoint list */
+var CASE_TYPE_LINKS = {}; // { "Residential Purchase": { factFind: url, terms: url }, ... }
+
+function cfgSetting(key, fallback) {
+  try {
+    if (
+      typeof configProperties !== "undefined" &&
+      configProperties[key] &&
+      configProperties[key].setting != null &&
+      String(configProperties[key].setting).trim() !== ""
+    ) {
+      return String(configProperties[key].setting).trim();
+    }
+  } catch (e) {}
+  return fallback || "";
+}
+
+function caseTypeLinksListName() {
+  return cfgSetting("CASETYPELINKSLIST", "CaseTypeLinks");
+}
+
+function htmlLink(url, label) {
+  if (!url) return "<em style=\"color:#94a3b8;\">[" + (label || "link not configured") + "]</em>";
+  var safe = String(url).replace(/"/g, "&quot;");
+  var text = label || url;
+  return (
+    '<a href="' +
+    safe +
+    '" style="color:#2563eb;font-weight:600;text-decoration:underline;" target="_blank" rel="noopener noreferrer">' +
+    text +
+    "</a>"
+  );
+}
+
+function plainLinkHint(url) {
+  return url || "[link not configured — add to config / CaseTypeLinks list]";
+}
+
+function getCaseTypeLinkRecord(caseType) {
+  if (!caseType) return {};
+  if (CASE_TYPE_LINKS[caseType]) return CASE_TYPE_LINKS[caseType];
+  // case-insensitive fallback
+  var key = String(caseType).toLowerCase();
+  var keys = Object.keys(CASE_TYPE_LINKS);
+  for (var i = 0; i < keys.length; i++) {
+    if (keys[i].toLowerCase() === key) return CASE_TYPE_LINKS[keys[i]];
+  }
+  return {};
+}
+
+function loadCaseTypeLinks(done) {
+  done = done || function () {};
+  var listName = caseTypeLinksListName();
+  var caml =
+    "<View><Query><OrderBy><FieldRef Name='Title'/></OrderBy></Query></View>";
+
+  if (!$spcontext || typeof $spcontext.getItem !== "function") {
+    console.warn("[NewCase] Cannot load case type links — $spcontext.getItem missing");
+    done();
+    return;
+  }
+
+  $spcontext.getItem(
+    listName,
+    caml,
+    function (itemCollection) {
+      try {
+        CASE_TYPE_LINKS = {};
+        var count =
+          typeof itemCollection.get_count === "function"
+            ? itemCollection.get_count()
+            : 0;
+        for (var i = 0; i < count; i++) {
+          var item = itemCollection.getItemAtIndex(i);
+          function f(name) {
+            try {
+              return item.get_item(name);
+            } catch (e) {
+              return null;
+            }
+          }
+          // Title or CaseType should match the Type dropdown value exactly
+          var typeKey = f("Title") || "";
+          typeKey = String(typeKey).trim();
+          if (!typeKey) continue;
+          CASE_TYPE_LINKS[typeKey] = {
+            factFind: String(f("FactFindLink") || "").trim(),
+            terms: String(
+              f("TermsOfBusinessLink") ||
+                ""
+            ).trim(),
+          };
+        }
+        console.log(
+          "[NewCase] Loaded case-type links:",
+          Object.keys(CASE_TYPE_LINKS).length,
+          "from",
+          listName
+        );
+      } catch (e) {
+        console.warn("[NewCase] Failed parsing CaseTypeLinks", e);
+      }
+      done();
+    },
+    function (sender, args) {
+      var msg =
+        (args && args.get_message && args.get_message()) ||
+        "Could not load CaseTypeLinks";
+      console.warn("[NewCase] CaseTypeLinks list error:", msg, "list=", listName);
+      done();
+    }
+  );
+}
+
+function buildCreditReportDocsHtml() {
+  var url = cfgSetting("CREDITREPORTLINK", "");
+  return (
+    "Please obtain a comprehensive credit report covering all three major agencies (Experian, Equifax and TransUnion) via CheckMyFile. " +
+    "Lenders may use any of these agencies, so a full report is essential. " +
+    "You can register for free access for 30 days (a subscription applies after that — you may cancel after downloading). " +
+    "Access your report here: " +
+    htmlLink(url, "Open CheckMyFile credit report")
+  );
+}
+
+function buildFactFindDocsHtml(caseType) {
+  var rec = getCaseTypeLinkRecord(caseType);
+  var factUrl = rec.factFind || "";
+  var affordUrl = cfgSetting("ASSESSMENTAFFORDABILITYLINK", "");
+  return (
+    "Complete our fact find by following the link: " +
+    htmlLink(factUrl, "Open fact find form") +
+    "<br/><br/>" +
+    "Do the assessment of affordability by following this link: " +
+    htmlLink(affordUrl, "Open affordability assessment")
+  );
+}
+
+function buildTermsDocsHtml(caseType) {
+  var rec = getCaseTypeLinkRecord(caseType);
+  var termsUrl = rec.terms || "";
+  var privacyUrl = cfgSetting("PRIVACYNOTICELINK", "");
+  return (
+    "Please review the following documents:" +
+    "<br/><br/>" +
+    "<strong>Privacy Notice</strong> — " +
+    htmlLink(privacyUrl, "View Privacy Notice") +
+    "<br/><br/>" +
+    "<strong>Terms of Business</strong> — " +
+    htmlLink(termsUrl, "View Terms of Business") +
+    "<br/><br/>" +
+    "After reviewing these documents, no further action is required at this stage. We will re-send them via Adobe Sign for electronic signature when appropriate."
+  );
+}
+
+function resolveCurrentCaseType() {
+  if (AppRequest && AppRequest.caseSubType) return AppRequest.caseSubType;
+  var typ = document.getElementById("case_type");
+  return typ ? String(typ.value || "").trim() : "";
+}
 
 function initDocumentChecklist() {
   var root = document.getElementById("docChecklistRoot");
   if (!root) return;
-  renderDocumentChecklist();
+  loadCaseTypeLinks(function () {
+    renderDocumentChecklist();
+  });
   var previewBtn = document.getElementById("docChecklistPreviewBtn");
   if (previewBtn) {
     previewBtn.addEventListener("click", function () {
       var box = document.getElementById("docChecklistPreview");
       if (!box) return;
-      box.textContent = buildRequiredDocumentsText();
+      // HTML email body — render for on-screen preview
+      box.innerHTML = buildRequiredDocumentsText();
       box.classList.add("open");
     });
   }
@@ -1009,6 +1199,8 @@ function renderDocumentChecklist() {
     )
   );
 
+  var caseType = resolveCurrentCaseType();
+
   root.appendChild(
     buildDocAccordion(
       "credit",
@@ -1020,7 +1212,8 @@ function renderDocumentChecklist() {
         function (on) {
           DOC_CHECKLIST_STATE.includeCreditReport = on;
         },
-        DOC_CATALOG.credit.docs
+        null,
+        buildCreditReportDocsHtml()
       )
     )
   );
@@ -1030,12 +1223,13 @@ function renderDocumentChecklist() {
       DOC_CATALOG.factFind.title,
       buildToggleRow(
         "doc_factfind",
-        "Request completed fact find",
+        "Request fact find & affordability assessment",
         DOC_CHECKLIST_STATE.includeFactFind,
         function (on) {
           DOC_CHECKLIST_STATE.includeFactFind = on;
         },
-        DOC_CATALOG.factFind.docs
+        null,
+        buildFactFindDocsHtml(caseType)
       )
     )
   );
@@ -1045,12 +1239,13 @@ function renderDocumentChecklist() {
       DOC_CATALOG.terms.title,
       buildToggleRow(
         "doc_terms",
-        "Include Terms of Business & Privacy Notice note",
+        "Include Privacy Notice & Terms of Business",
         DOC_CHECKLIST_STATE.includeTerms,
         function (on) {
           DOC_CHECKLIST_STATE.includeTerms = on;
         },
-        DOC_CATALOG.terms.docs
+        null,
+        buildTermsDocsHtml(caseType)
       )
     )
   );
@@ -1148,7 +1343,7 @@ function buildCheckboxGroup(name, options, selectedArr, onChange) {
   return box;
 }
 
-function buildToggleRow(id, label, checked, onChange, detail) {
+function buildToggleRow(id, label, checked, onChange, detail, htmlDetail) {
   var wrap = document.createElement("div");
   wrap.className = "doc-toggle-block";
   var row = document.createElement("label");
@@ -1166,7 +1361,12 @@ function buildToggleRow(id, label, checked, onChange, detail) {
   row.appendChild(input);
   row.appendChild(main);
   wrap.appendChild(row);
-  if (detail) {
+  if (htmlDetail) {
+    var dHtml = document.createElement("div");
+    dHtml.className = "doc-option-docs detail";
+    dHtml.innerHTML = htmlDetail;
+    wrap.appendChild(dHtml);
+  } else if (detail) {
     var d = document.createElement("p");
     d.className = "doc-option-docs detail";
     d.textContent = detail;
@@ -1176,40 +1376,50 @@ function buildToggleRow(id, label, checked, onChange, detail) {
 }
 
 function buildRequiredDocumentsText() {
-  var lines = [];
-  lines.push("DOCUMENT REQUIREMENTS");
-  lines.push("");
+  var contactKey = getSelectedContactMethod();
+  var contactPhrase =
+    CONTACT_METHOD_PHRASES[contactKey] || CONTACT_METHOD_PHRASES.other;
+
+  var sections = [];
 
   var idOpt = DOC_CATALOG.identity.options.filter(function (o) {
     return o.value === DOC_CHECKLIST_STATE.identityType;
   })[0];
   if (idOpt) {
-    lines.push("• Proof of Identity — " + idOpt.label);
-    lines.push("  " + idOpt.docs);
-    lines.push("");
+    sections.push({
+      title: "Proof of Identity — " + idOpt.label,
+      body: idOpt.docs,
+    });
   }
 
   if (DOC_CHECKLIST_STATE.includeAddress) {
-    lines.push("• Proof of Address");
-    lines.push("  " + DOC_CATALOG.address.docs);
-    lines.push("");
+    sections.push({
+      title: "Proof of Address",
+      body: DOC_CATALOG.address.docs,
+    });
   }
 
   if (DOC_CHECKLIST_STATE.includeBankStatements) {
-    lines.push("• Bank statements (all income types)");
-    lines.push("  " + DOC_CATALOG.income.always);
-    lines.push("");
+    sections.push({
+      title: "Bank Statements",
+      body: DOC_CATALOG.income.always,
+    });
   }
 
   if (DOC_CHECKLIST_STATE.incomeTypes && DOC_CHECKLIST_STATE.incomeTypes.length) {
-    lines.push("• Proof of Income — specific:");
+    var incomeBits = [];
     DOC_CHECKLIST_STATE.incomeTypes.forEach(function (v) {
       var opt = DOC_CATALOG.income.options.filter(function (o) {
         return o.value === v;
       })[0];
-      if (opt) lines.push("  – " + opt.label + ": " + opt.docs);
+      if (opt) incomeBits.push("<strong>" + opt.label + ":</strong> " + opt.docs);
     });
-    lines.push("");
+    if (incomeBits.length) {
+      sections.push({
+        title: "Proof of Income",
+        body: incomeBits.join("<br/><br/>"),
+      });
+    }
   }
 
   if (DOC_CHECKLIST_STATE.depositType && DOC_CHECKLIST_STATE.depositType !== "None") {
@@ -1217,40 +1427,110 @@ function buildRequiredDocumentsText() {
       return o.value === DOC_CHECKLIST_STATE.depositType;
     })[0];
     if (dep) {
-      lines.push("• Proof of Deposit — " + dep.label);
-      lines.push("  " + dep.docs);
-      lines.push("");
+      sections.push({
+        title: "Proof of Deposit — " + dep.label,
+        body: dep.docs,
+      });
     }
   }
 
+  var caseTypeForEmail = resolveCurrentCaseType();
+
   if (DOC_CHECKLIST_STATE.includeCreditReport) {
-    lines.push("• Credit Report (CheckMyFile)");
-    lines.push("  " + DOC_CATALOG.credit.docs);
-    lines.push("");
+    sections.push({
+      title: "Credit Report",
+      body: buildCreditReportDocsHtml(),
+    });
   }
 
   if (DOC_CHECKLIST_STATE.includeFactFind) {
-    lines.push("• Fact Find");
-    lines.push("  " + DOC_CATALOG.factFind.docs);
-    lines.push("");
+    sections.push({
+      title: "Fact Find & Affordability Assessment",
+      body: buildFactFindDocsHtml(caseTypeForEmail),
+    });
   }
 
   if (DOC_CHECKLIST_STATE.includeTerms) {
-    lines.push("• Terms of Business & Privacy Notice");
-    lines.push("  " + DOC_CATALOG.terms.docs);
-    lines.push("");
+    sections.push({
+      title: "Terms of Business & Privacy Notice",
+      body: buildTermsDocsHtml(caseTypeForEmail),
+    });
   }
 
-  lines.push("Please email documents to admin@mortgage2match.com");
-  lines.push(
-    "Tips: Prefer a scanner; if using a phone, use a scanning app, neutral background, all four corners visible."
-  );
+  var cards = sections
+    .map(function (s, i) {
+      return (
+        '<tr>' +
+        '<td style="padding:0 0 14px 0;">' +
+        '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;">' +
+        '<tr><td style="background:#f8fafc;padding:10px 14px;border-bottom:1px solid #e2e8f0;">' +
+        '<span style="display:inline-block;width:22px;height:22px;line-height:22px;text-align:center;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:700;margin-right:8px;">' +
+        (i + 1) +
+        "</span>" +
+        '<span style="font-size:14px;font-weight:700;color:#0f172a;">' +
+        s.title +
+        "</span>" +
+        "</td></tr>" +
+        '<tr><td style="padding:12px 14px;font-size:13px;line-height:1.55;color:#334155;">' +
+        s.body +
+        "</td></tr>" +
+        "</table>" +
+        "</td></tr>"
+      );
+    })
+    .join("");
 
-  return lines.join("\n");
+var html =
+    '<div style="margin:0;padding:0;background:#f1f5f9;font-family:Segoe UI,Roboto,Helvetica,Arial,sans-serif;">' +
+    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:24px 12px;">' +
+    "<tr><td align=\"center\">" +
+    '<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:14px;overflow:hidden;box-shadow:0 4px 24px rgba(15,23,42,0.08);">' +
+    // header
+    '<tr><td style="background:linear-gradient(135deg,#1e3a8a,#2563eb);padding:28px 28px 24px;">' +
+    '<div style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:#bfdbfe;font-weight:600;margin-bottom:8px;">Mortgage2Match</div>' +
+    '<div style="font-size:22px;font-weight:700;color:#ffffff;line-height:1.3;">Documents required for your application</div>' +
+    "</td></tr>" +
+    // intro
+    '<tr><td style="padding:28px 28px 8px;font-size:15px;line-height:1.65;color:#0f172a;">' +
+    // Power Automate replaces <!--SALUTATION--> with e.g. "Dear Jane Smith,"
+    "<p style=\"margin:0 0 14px 0;\"><!--SALUTATION--></p>" +
+    "<p style=\"margin:0 0 14px 0;\">Following your <strong>" +
+    contactPhrase +
+    "</strong> with us, kindly provide the following documents to enable us to proceed with your application.</p>" +
+    "</td></tr>" +
+    // sections
+    '<tr><td style="padding:12px 28px 8px;">' +
+    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0">' +
+    cards +
+    "</table>" +
+    "</td></tr>" +
+    // tips
+    '<tr><td style="padding:8px 28px 24px;">' +
+    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;">' +
+    '<tr><td style="padding:14px 16px;font-size:13px;line-height:1.55;color:#1e3a8a;">' +
+    "<strong style=\"display:block;margin-bottom:6px;\">Tips for sending your documents</strong>" +
+    "• Prefer a scanner for high-quality copies<br/>" +
+    "• If using a phone, use a scanning app on a neutral background with all four corners visible<br/>" +
+    "• If you cannot obtain a document, let us know — alternatives may be acceptable" +
+    "</td></tr></table>" +
+    "</td></tr>" +
+    // Footer: Power Automate replaces <!--FOOTER--> (sign-off / adviser details)
+    '<tr><td style="padding:20px 28px 28px;border-top:1px solid #e2e8f0;font-size:14px;line-height:1.65;color:#475569;">' +
+    "<!--FOOTER-->" +
+    "</td></tr>" +
+    "</table>" +
+    "</td></tr></table></div>";
+
+  return html;
 }
 
+
 function collectRequiredDocumentsPayload() {
+  var contactMethod = getSelectedContactMethod();
   return {
+    contactMethod: contactMethod,
+    contactPhrase: CONTACT_METHOD_PHRASES[contactMethod] || CONTACT_METHOD_PHRASES.other,
+    contactLabel: CONTACT_METHOD_LABELS[contactMethod] || contactMethod,
     identityType: DOC_CHECKLIST_STATE.identityType,
     incomeTypes: (DOC_CHECKLIST_STATE.incomeTypes || []).slice(),
     depositType: DOC_CHECKLIST_STATE.depositType,
@@ -1339,6 +1619,8 @@ function bindCategoryTypeCascade() {
     if (terr) terr.textContent = "";
     AppRequest.caseSubType = typ.value || null;
     updateTypeDetailPanel(AppRequest.applicationType, AppRequest.caseSubType);
+    // Refresh checklist copy so Fact Find / Terms links match the selected type
+    if (typ.value) renderDocumentChecklist();
   });
 }
 
@@ -1700,7 +1982,12 @@ function createSingleCase(appType, ctx, callback) {
 
   if (ctx.requiredDocuments && ctx.requiredDocuments.emailText) {
     formData.RequiredDocuments = ctx.requiredDocuments.emailText;
+    formData.ContactChannel =
+      ctx.requiredDocuments.contactLabel ||
+      ctx.requiredDocuments.contactMethod ||
+      "";
     formData.RequiredDocumentsSummary = [
+      "Contact=" + (ctx.requiredDocuments.contactMethod || ""),
       "Identity=" + (ctx.requiredDocuments.identityType || ""),
       "Income=" + ((ctx.requiredDocuments.incomeTypes || []).join(",")),
       "Deposit=" + (ctx.requiredDocuments.depositType || ""),
@@ -1778,6 +2065,7 @@ function createSingleCase(appType, ctx, callback) {
           : new Date(),
       };
       if (formData.MortgageAdmin) mirrorData.MortgageAdmin = formData.MortgageAdmin;
+      if (formData.ContactChannel) mirrorData.ContactChannel = formData.ContactChannel;
       if (formData.RequiredDocuments)
         mirrorData.RequiredDocuments = formData.RequiredDocuments;
       if (formData.RequiredDocumentsSummary)

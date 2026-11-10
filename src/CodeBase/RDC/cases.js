@@ -41,9 +41,9 @@ var CATEGORY_TABLE_MAP = {
 // manualTable's settings skips that DOM scan entirely, so each category only
 // ever renders its own columns.
 var CATEGORY_CONTROLS = {
-    MORTGAGE: ["CaseID", "Client", "Adviser", "ApplicationType", "Status"],
-    P4L: ["CaseID", "Client", "Adviser", "ApplicationType", "Status"],
-    GI: ["CaseID", "Client", "Adviser", "ApplicationType", "Status"]
+    MORTGAGE: ["CaseID", "Title", "Adviser", "ApplicationType", "Status"],
+    P4L: ["CaseID", "Title", "Adviser", "ApplicationType", "Status"],
+    GI: ["CaseID", "Title", "Adviser", "ApplicationType", "Status"]
 };
 
 MainApplication.CasesComponent.ApplicationDetails = function () {
@@ -82,9 +82,13 @@ whenCasesLoaded = function () {
     $spcontext.DataForTable.paginationuId = "toppagination";
 
     $spcontext.DataForTable.propertiesHandler = {
-		"Client": function (valueToEva) {
-			return valueToEva.Client.value;
-		},
+        "Title": function (valueToEva) {
+            var title = valueToEva.Title || "";
+            // if (title.length > 40) {
+            //     title = title.substring(0, 37) + "...";
+            // }
+            return title;
+        },
 		"Adviser": function (valueToEva) {
 			return valueToEva.Adviser.value;
 		},
