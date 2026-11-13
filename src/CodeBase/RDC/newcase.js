@@ -1557,6 +1557,7 @@ var TYPES_BY_CATEGORY = {
     { value: "Bridging", text: "Bridging" },
     { value: "Second Charge", text: "Second Charge" },
     { value: "Right to Buy", text: "Right to Buy" },
+    { value: "Buy-to-Let International / Expat", text: "Buy-to-Let International / Expat" },
   ],
   P4L: [
     { value: "Business Protection", text: "Business Protection" },
